@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Colloquia
+Comment=Grabación y transcripción local de sesiones
+Exec=Colloquia
+Icon=colloquia
+Terminal=false
+Categories=AudioVideo;Audio;Recorder;

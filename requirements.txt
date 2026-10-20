@@ -1,0 +1,10 @@
+faster-whisper
+sherpa-onnx
+sounddevice
+numpy
+lameenc
+customtkinter
+nvidia-cublas-cu12; sys_platform == "win32"
+nvidia-cudnn-cu12==9.*; sys_platform == "win32"
+av<19
+truststore

@@ -1,0 +1,61 @@
+import os
+import sys
+
+from PyInstaller.utils.hooks import collect_data_files, collect_dynamic_libs
+
+ROOT = os.path.dirname(SPECPATH)
+VERSION = os.environ.get("COLLOQUIA_VERSION", "1.0.0")
+CUDA = os.environ.get("COLLOQUIA_CUDA") == "1"
+ICON = os.path.join(SPECPATH, "colloquia.png")
+
+binaries = collect_dynamic_libs("ctranslate2") + collect_dynamic_libs("sherpa_onnx")
+if CUDA:
+    for pkg in ("nvidia.cublas", "nvidia.cudnn", "nvidia.cuda_nvrtc"):
+        binaries += collect_dynamic_libs(pkg)
+
+a = Analysis(
+    [os.path.join(ROOT, "colloquia.py")],
+    pathex=[ROOT],
+    binaries=binaries,
+    datas=collect_data_files("faster_whisper"),
+    runtime_hooks=[os.path.join(SPECPATH, "pyi_rth_portaudio.py")] if sys.platform.startswith("linux") else [],
+    excludes=["matplotlib", "pandas", "scipy", "torch", "IPython", "pytest"],
+)
+pyz = PYZ(a.pure)
+
+
+def exe(name, console):
+    return EXE(
+        pyz,
+        a.scripts,
+        [("X utf8", None, "OPTION")],
+        exclude_binaries=True,
+        name=name,
+        console=console,
+        icon=ICON,
+        upx=False,
+        argv_emulation=False,
+    )
+
+
+exes = [exe("Colloquia", False)]
+if sys.platform == "win32":
+    exes.append(exe("colloquia-cli", True))
+
+coll = COLLECT(*exes, a.binaries, a.datas, name="Colloquia", upx=False)
+
+if sys.platform == "darwin":
+    app = BUNDLE(
+        coll,
+        name="Colloquia.app",
+        icon=ICON,
+        bundle_identifier="io.github.arocafull00.colloquia",
+        version=VERSION,
+        info_plist={
+            "CFBundleDisplayName": "Colloquia",
+            "CFBundleShortVersionString": VERSION,
+            "NSMicrophoneUsageDescription": "Colloquia usa el micrófono para grabar las sesiones.",
+            "NSHighResolutionCapable": True,
+            "LSMinimumSystemVersion": "11.0",
+        },
+    )

@@ -1,0 +1,128 @@
+name: Instaladores
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+env:
+  PYTHON_VERSION: "3.12"
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        variant: [cpu, cuda]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Versión
+        shell: bash
+        run: echo "COLLOQUIA_VERSION=$([[ $GITHUB_REF == refs/tags/v* ]] && echo ${GITHUB_REF_NAME#v} || echo 0.0.$GITHUB_RUN_NUMBER)" >> $GITHUB_ENV
+      - name: Dependencias
+        shell: bash
+        run: |
+          if [ "${{ matrix.variant }}" = cpu ]; then grep -vi nvidia requirements.txt > req.txt; else cp requirements.txt req.txt; fi
+          python -m pip install -r req.txt pyinstaller pillow
+      - name: PyInstaller
+        env:
+          COLLOQUIA_CUDA: ${{ matrix.variant == 'cuda' && '1' || '0' }}
+        run: pyinstaller --noconfirm packaging/colloquia.spec
+      - name: Prueba de arranque
+        run: dist\Colloquia\colloquia-cli.exe --help
+      - name: Instalador
+        run: |
+          choco install innosetup -y --no-progress
+          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" "/DAppVersion=$env:COLLOQUIA_VERSION" "/DOutputName=Colloquia-$env:COLLOQUIA_VERSION-windows-${{ matrix.variant }}-setup" packaging\colloquia.iss
+      - uses: actions/upload-artifact@v4
+        with:
+          name: colloquia-windows-${{ matrix.variant }}
+          path: dist/*-setup.exe
+          compression-level: 0
+
+  macos:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Versión
+        run: echo "COLLOQUIA_VERSION=$([[ $GITHUB_REF == refs/tags/v* ]] && echo ${GITHUB_REF_NAME#v} || echo 0.0.$GITHUB_RUN_NUMBER)" >> $GITHUB_ENV
+      - name: Dependencias
+        run: python -m pip install -r requirements.txt pyinstaller pillow
+      - name: PyInstaller
+        run: pyinstaller --noconfirm packaging/colloquia.spec
+      - name: Prueba de arranque
+        run: |
+          plutil -extract NSMicrophoneUsageDescription raw dist/Colloquia.app/Contents/Info.plist
+          dist/Colloquia.app/Contents/MacOS/Colloquia --help
+      - name: DMG
+        run: |
+          mkdir dmg
+          ditto dist/Colloquia.app dmg/Colloquia.app
+          ln -s /Applications dmg/Applications
+          hdiutil create -volname Colloquia -srcfolder dmg -ov -format UDZO "dist/Colloquia-$COLLOQUIA_VERSION-macos-arm64.dmg"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: colloquia-macos
+          path: dist/*.dmg
+          compression-level: 0
+
+  linux:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Versión
+        run: echo "COLLOQUIA_VERSION=$([[ $GITHUB_REF == refs/tags/v* ]] && echo ${GITHUB_REF_NAME#v} || echo 0.0.$GITHUB_RUN_NUMBER)" >> $GITHUB_ENV
+      - name: Dependencias
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libportaudio2
+          python -m pip install -r requirements.txt pyinstaller pillow
+      - name: PyInstaller
+        run: pyinstaller --noconfirm packaging/colloquia.spec
+      - name: Prueba de arranque
+        run: dist/Colloquia/Colloquia --help
+      - name: Tarball
+        run: tar -C dist -czf "dist/Colloquia-$COLLOQUIA_VERSION-linux-x86_64.tar.gz" Colloquia
+      - name: AppImage
+        run: |
+          mkdir AppDir
+          cp -a dist/Colloquia/. AppDir/
+          cp packaging/colloquia.png packaging/colloquia.desktop AppDir/
+          printf '#!/bin/sh\nexec "$(dirname "$(readlink -f "$0")")/Colloquia" "$@"\n' > AppDir/AppRun
+          chmod +x AppDir/AppRun
+          wget -q https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage
+          chmod +x appimagetool-x86_64.AppImage
+          ARCH=x86_64 APPIMAGE_EXTRACT_AND_RUN=1 ./appimagetool-x86_64.AppImage AppDir "dist/Colloquia-$COLLOQUIA_VERSION-linux-x86_64.AppImage"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: colloquia-linux
+          path: |
+            dist/*.tar.gz
+            dist/*.AppImage
+          compression-level: 0
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [windows, macos, linux]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/*
+          draft: true
