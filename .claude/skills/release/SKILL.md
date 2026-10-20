@@ -38,7 +38,7 @@ git tag -a vX.Y.Z -m "Colloquia X.Y.Z"
 git push origin vX.Y.Z
 ```
 
-Esto lanza `.github/workflows/build.yml`, que compila Windows (CUDA), macOS y Linux y crea un borrador de release con los instaladores, incluido `Colloquia-Windows-Setup.exe`.
+Esto lanza `.github/workflows/build.yml`, que compila Windows, macOS y Linux y crea un borrador de release con los instaladores, incluido `Colloquia-Windows-Setup.exe`.
 
 ## 4. Esperar a la compilación
 

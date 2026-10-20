@@ -29,6 +29,7 @@ else:
 CONFIG_PATH = os.path.join(CONFIG_DIR, "config.json")
 LOG_PATH = os.path.join(CONFIG_DIR, "colloquia.log")
 MODELS_DIR = os.path.join(CONFIG_DIR, "models")
+CUDA_DIR = os.path.join(os.environ.get("LOCALAPPDATA", CONFIG_DIR), APP, "cuda")
 os.makedirs(CONFIG_DIR, exist_ok=True)
 
 DEFAULTS = {

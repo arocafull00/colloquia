@@ -9,16 +9,24 @@ import sys
 import wave
 from datetime import datetime
 
-PACKAGES = getattr(sys, "_MEIPASS", os.path.join(sys.prefix, "Lib", "site-packages"))
-for d in glob.glob(os.path.join(PACKAGES, "nvidia", "*", "bin")):
-    os.add_dll_directory(d)
-    os.environ["PATH"] = d + os.pathsep + os.environ["PATH"]
-
 import lameenc
 import numpy as np
 
 import models
-from config import MAC
+from config import CUDA_DIR, MAC, WIN
+
+PACKAGES = getattr(sys, "_MEIPASS", os.path.join(sys.prefix, "Lib", "site-packages"))
+
+
+def add_cuda_dirs():
+    for d in glob.glob(os.path.join(PACKAGES, "nvidia", "*", "bin")) + glob.glob(os.path.join(CUDA_DIR, "nvidia", "*", "bin")):
+        if d not in os.environ["PATH"]:
+            os.add_dll_directory(d)
+            os.environ["PATH"] = d + os.pathsep + os.environ["PATH"]
+
+
+if WIN:
+    add_cuda_dirs()
 from recorder import PCM, read_meta, write_meta
 
 RATE = 16000
@@ -47,7 +55,8 @@ def load_whisper(name):
     from faster_whisper import WhisperModel
 
     path = models.whisper_path(name) or name
-    if not MAC:
+    if WIN and models.cuda_ready():
+        add_cuda_dirs()
         try:
             model = WhisperModel(path, device="cuda", compute_type="float16")
             list(model.transcribe(np.zeros(RATE, np.float32), language="es")[0])

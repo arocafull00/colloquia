@@ -22,8 +22,6 @@ jobs:
       - name: Dependencias
         run: python -m pip install -r requirements.txt pyinstaller pillow
       - name: PyInstaller
-        env:
-          COLLOQUIA_CUDA: "1"
         run: pyinstaller --noconfirm packaging/colloquia.spec
       - name: Prueba de arranque
         run: dist\Colloquia\colloquia-cli.exe --help

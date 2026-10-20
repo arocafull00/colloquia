@@ -275,15 +275,22 @@ class Api:
             self._set_banner(text + (f" {p * 100:.0f}%" if p is not None else ""))
 
         def work():
-            if not models.missing(model):
-                return
-            status("Preparando modelos (solo la primera vez)…", None)
-            try:
-                models.ensure(model, status)
-                self._set_banner("")
-            except Exception as e:
-                traceback.print_exc()
-                self._set_banner(f"No se pudieron descargar los modelos ({e}). Se reintentará al procesar la sesión.")
+            if models.missing(model):
+                status("Preparando modelos (solo la primera vez)…", None)
+                try:
+                    models.ensure(model, status)
+                    self._set_banner("")
+                except Exception as e:
+                    traceback.print_exc()
+                    self._set_banner(f"No se pudieron descargar los modelos ({e}). Se reintentará al procesar la sesión.")
+                    return
+            if models.needs_cuda():
+                try:
+                    models.ensure_cuda(status)
+                    self._set_banner("")
+                except Exception:
+                    traceback.print_exc()
+                    self._set_banner("")
 
         threading.Thread(target=work, daemon=True).start()
 

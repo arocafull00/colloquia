@@ -5,14 +5,10 @@ from PyInstaller.utils.hooks import collect_data_files, collect_dynamic_libs
 
 ROOT = os.path.dirname(SPECPATH)
 VERSION = os.environ.get("COLLOQUIA_VERSION", "1.0.0")
-CUDA = os.environ.get("COLLOQUIA_CUDA") == "1"
 ICON = os.path.join(SPECPATH, "colloquia.png")
 ICO = os.path.join(SPECPATH, "colloquia.ico")
 
 binaries = collect_dynamic_libs("ctranslate2") + collect_dynamic_libs("sherpa_onnx")
-if CUDA:
-    for pkg in ("nvidia.cublas", "nvidia.cudnn", "nvidia.cuda_nvrtc"):
-        binaries += collect_dynamic_libs(pkg)
 
 a = Analysis(
     [os.path.join(ROOT, "colloquia.py")],
