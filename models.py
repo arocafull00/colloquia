@@ -57,7 +57,7 @@ def missing(model_name):
         label
         for label, ok in (
             ("voces", segmentation_path() and embedding_path()),
-            ("transcripción", whisper_path(model_name)),
+            ("transcripción", ggml_path(model_name) if uses_whisper_cpp() else whisper_path(model_name)),
         )
         if not ok
     ]
@@ -141,18 +141,13 @@ def has_gpu():
     return bool(glob.glob("/dev/dri/renderD*"))
 
 
-def whisper_cpp_wanted():
+def uses_whisper_cpp():
     engine = os.environ.get("COLLOQUIA_ENGINE")
-    if engine in ("faster", "whispercpp"):
+    if engine:
         return engine == "whispercpp" and bool(whisper_cli())
+    if WIN and (cuda_ready() or needs_cuda()):
+        return False
     return bool(whisper_cli()) and has_gpu()
-
-
-def ensure_ggml(name, status):
-    os.makedirs(MODELS_DIR, exist_ok=True)
-    if not ggml_path(name):
-        file = f"ggml-{GGML.get(name, name)}.bin"
-        _download(GGML_URL.format(GGML.get(name, name)), os.path.join(MODELS_DIR, file), lambda p: status(f"Descargando modelo de transcripción {name}…", p))
 
 
 def _open(url):
@@ -172,12 +167,12 @@ def _download(url, dest, progress):
     os.replace(tmp, dest)
 
 
-def ensure(model_name, status):
+def ensure(model_name, status, cpp=None):
     with LOCK:
-        _ensure(model_name, status)
+        _ensure(model_name, status, uses_whisper_cpp() if cpp is None else cpp)
 
 
-def _ensure(model_name, status):
+def _ensure(model_name, status, cpp):
     os.makedirs(MODELS_DIR, exist_ok=True)
     if not segmentation_path():
         archive = os.path.join(MODELS_DIR, "segmentation.tar.bz2")
@@ -191,7 +186,14 @@ def _ensure(model_name, status):
             os.path.join(MODELS_DIR, os.path.basename(EMBEDDING_URL)),
             lambda p: status("Descargando modelo de voces (2/3)…", p),
         )
-    if not whisper_path(model_name):
+    if cpp and not ggml_path(model_name):
+        file = GGML.get(model_name, model_name)
+        _download(
+            GGML_URL.format(file),
+            os.path.join(MODELS_DIR, f"ggml-{file}.bin"),
+            lambda p: status(f"Descargando modelo de transcripción {model_name} (3/3)…", p),
+        )
+    if not cpp and not whisper_path(model_name):
         status(f"Descargando modelo de transcripción {model_name} (3/3). Puede tardar varios minutos…", None)
         from faster_whisper import download_model
 

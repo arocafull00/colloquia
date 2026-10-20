@@ -7,6 +7,11 @@ on:
 
 env:
   PYTHON_VERSION: "3.12"
+  WHISPER_CPP_VERSION: v1.9.5
+  VULKAN_VERSION: 1.4.357.0
+  WHISPER_CPP_FLAGS: >-
+    -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF -DGGML_NATIVE=OFF -DGGML_OPENMP=OFF
+    -DWHISPER_BUILD_TESTS=OFF -DWHISPER_BUILD_SERVER=OFF -DWHISPER_SDL2=OFF
 
 jobs:
   windows:
@@ -21,10 +26,22 @@ jobs:
         run: echo "COLLOQUIA_VERSION=$([[ $GITHUB_REF == refs/tags/v* ]] && echo ${GITHUB_REF_NAME#v} || echo 0.0.$GITHUB_RUN_NUMBER)" >> $GITHUB_ENV
       - name: Dependencias
         run: python -m pip install -r requirements.txt pyinstaller pillow
+      - name: whisper.cpp (Vulkan)
+        run: |
+          curl.exe -sSLo "$env:RUNNER_TEMP/vulkansdk.exe" "https://sdk.lunarg.com/sdk/download/$env:VULKAN_VERSION/windows/vulkansdk-windows-X64-$env:VULKAN_VERSION.exe"
+          Start-Process -Wait -FilePath "$env:RUNNER_TEMP/vulkansdk.exe" -ArgumentList "--root", "C:\VulkanSDK", "--accept-licenses", "--default-answer", "--confirm-command", "install"
+          $env:VULKAN_SDK = "C:\VulkanSDK"
+          git clone -q --depth 1 -b $env:WHISPER_CPP_VERSION https://github.com/ggml-org/whisper.cpp "$env:RUNNER_TEMP/wsrc"
+          cmake -S "$env:RUNNER_TEMP/wsrc" -B "$env:RUNNER_TEMP/wb" $env:WHISPER_CPP_FLAGS.Split(" ") -DGGML_VULKAN=ON -DGGML_AVX2=ON -DGGML_FMA=ON -DGGML_F16C=ON -DCMAKE_POLICY_DEFAULT_CMP0091=NEW -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded
+          cmake --build "$env:RUNNER_TEMP/wb" --config Release -j 4 --target whisper-cli
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          "WHISPER_CLI=$env:RUNNER_TEMP/wb/bin/Release/whisper-cli.exe" >> $env:GITHUB_ENV
       - name: PyInstaller
         run: pyinstaller --noconfirm packaging/colloquia.spec
       - name: Prueba de arranque
-        run: dist\Colloquia\colloquia-cli.exe --help
+        run: |
+          dist\Colloquia\colloquia-cli.exe --help
+          if (-not (Test-Path dist\Colloquia\_internal\whisper-cpp\whisper-cli.exe)) { throw "Falta whisper-cli.exe" }
       - name: Instalador
         run: |
           choco install innosetup -y --no-progress
@@ -46,10 +63,17 @@ jobs:
         run: echo "COLLOQUIA_VERSION=$([[ $GITHUB_REF == refs/tags/v* ]] && echo ${GITHUB_REF_NAME#v} || echo 0.0.$GITHUB_RUN_NUMBER)" >> $GITHUB_ENV
       - name: Dependencias
         run: python -m pip install -r requirements.txt pyinstaller pillow
+      - name: whisper.cpp (Metal)
+        run: |
+          git clone -q --depth 1 -b $WHISPER_CPP_VERSION https://github.com/ggml-org/whisper.cpp "$RUNNER_TEMP/wsrc"
+          cmake -S "$RUNNER_TEMP/wsrc" -B "$RUNNER_TEMP/wb" $WHISPER_CPP_FLAGS -DGGML_METAL=ON -DGGML_METAL_EMBED_LIBRARY=ON -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0 -DCMAKE_CXX_FLAGS="-include algorithm"
+          cmake --build "$RUNNER_TEMP/wb" -j 4 --target whisper-cli
+          echo "WHISPER_CLI=$RUNNER_TEMP/wb/bin/whisper-cli" >> $GITHUB_ENV
       - name: PyInstaller
         run: pyinstaller --noconfirm packaging/colloquia.spec
       - name: Prueba de arranque
         run: |
+          find dist/Colloquia.app -name whisper-cli -type f | grep -q . || { echo "Falta whisper-cli"; exit 1; }
           plutil -extract NSMicrophoneUsageDescription raw dist/Colloquia.app/Contents/Info.plist
           dist/Colloquia.app/Contents/MacOS/Colloquia --help
       - name: DMG
@@ -78,10 +102,21 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libportaudio2 libxcb-cursor0
           python -m pip install -r requirements.txt pyinstaller pillow
+      - name: whisper.cpp (Vulkan)
+        run: |
+          curl -sSL "https://sdk.lunarg.com/sdk/download/$VULKAN_VERSION/linux/vulkansdk-linux-x86_64-$VULKAN_VERSION.tar.xz" | tar -xJ -C "$RUNNER_TEMP"
+          export VULKAN_SDK="$RUNNER_TEMP/$VULKAN_VERSION/x86_64" PATH="$RUNNER_TEMP/$VULKAN_VERSION/x86_64/bin:$PATH"
+          git clone -q --depth 1 -b $WHISPER_CPP_VERSION https://github.com/ggml-org/whisper.cpp "$RUNNER_TEMP/wsrc"
+          cmake -S "$RUNNER_TEMP/wsrc" -B "$RUNNER_TEMP/wb" $WHISPER_CPP_FLAGS -DGGML_VULKAN=ON -DGGML_AVX2=ON -DGGML_FMA=ON -DGGML_F16C=ON -DCMAKE_CXX_FLAGS="-include algorithm" -DCMAKE_EXE_LINKER_FLAGS="-static-libstdc++ -static-libgcc"
+          cmake --build "$RUNNER_TEMP/wb" -j 4 --target whisper-cli
+          ldd "$RUNNER_TEMP/wb/bin/whisper-cli"
+          echo "WHISPER_CLI=$RUNNER_TEMP/wb/bin/whisper-cli" >> $GITHUB_ENV
       - name: PyInstaller
         run: pyinstaller --noconfirm packaging/colloquia.spec
       - name: Prueba de arranque
-        run: dist/Colloquia/Colloquia --help
+        run: |
+          test -x dist/Colloquia/_internal/whisper-cpp/whisper-cli
+          dist/Colloquia/Colloquia --help
       - name: Tarball
         run: tar -C dist -czf "dist/Colloquia-$COLLOQUIA_VERSION-linux-x86_64.tar.gz" Colloquia
       - name: AppImage

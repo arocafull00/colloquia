@@ -16,10 +16,13 @@ PROMPT_TOKENS = 38
 PROGRESS = re.compile(r"progress =\s*(\d+)%")
 
 
+class Unavailable(RuntimeError):
+    pass
+
+
 class Model:
     def __init__(self, cli, model, threads):
         self.cli, self.model, self.threads = cli, model, threads
-        self.backend = None
 
     def transcribe(self, audio, language=None, hotwords=None, vad_filter=False, vad_parameters=None, beam_size=5, **_):
         return self._run(audio, language, hotwords, vad_filter, vad_parameters, beam_size), None
@@ -48,24 +51,30 @@ class Model:
                 cmd += ["--prompt", hotwords, "--carry-initial-prompt", "-mc", str(PROMPT_TOKENS + 1)]
             else:
                 cmd += ["-mc", "0"]
-            proc = subprocess.Popen(
-                cmd,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.PIPE,
-                text=True,
-                encoding="utf-8",
-                errors="replace",
-                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
-            )
-            log = []
+            try:
+                proc = subprocess.Popen(
+                    cmd,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.PIPE,
+                    text=True,
+                    encoding="utf-8",
+                    errors="replace",
+                    creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+                )
+            except OSError as e:
+                raise Unavailable(e) from e
+            log, gpu = [], False
             for line in proc.stderr:
                 log.append(line)
-                if "using " in line and " backend" in line:
-                    self.backend = line.split("using ", 1)[1].split(" backend")[0]
+                gpu = gpu or "whisper_backend_init_gpu: using" in line
                 if m := PROGRESS.search(line):
+                    if not gpu:
+                        proc.kill()
+                        proc.wait()
+                        raise Unavailable("no se encontró una GPU compatible")
                     yield Segment("", int(m.group(1)) / 100 * duration, [])
             if proc.wait():
-                raise RuntimeError("whisper.cpp falló:\n" + "".join(log[-20:]))
+                raise Unavailable(f"código {proc.returncode}: " + "".join(log[-5:]).strip())
             with open(out + ".json", "rb") as f:
                 result = json.loads(f.read().decode("utf-8", "surrogateescape"))
         for seg in result["transcription"]:

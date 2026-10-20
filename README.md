@@ -96,10 +96,11 @@ Procesar una sesión de una hora tarda aproximadamente:
 | Equipo | Modelo | Tiempo aproximado |
 |---|---|---|
 | GPU NVIDIA | Turbo (recomendado) | 5–10 min |
+| GPU AMD o Intel, Mac con Apple Silicon | Turbo (recomendado) | 5–15 min (sin medir en estos equipos) |
 | Solo CPU | Turbo | 30–60 min |
 | Solo CPU | Medium / Small | 20–40 min |
 
-La transcripción y la identificación de voces se hacen en paralelo.
+La transcripción y la identificación de voces se hacen en paralelo. Con GPU NVIDIA y el soporte CUDA descargado se usa faster-whisper; con otras GPU (o una NVIDIA sin CUDA) se usa whisper.cpp con Vulkan en Windows y Linux, o Metal en Mac. Si no hay GPU compatible, o whisper.cpp falla, se transcribe con la CPU.
 
 ## Seguridad de la grabación
 
@@ -141,6 +142,7 @@ pyinstaller --noconfirm packaging/colloquia.spec
 
 - El resultado queda en `dist/`: `Colloquia/` en Windows y Linux, `Colloquia.app` en macOS.
 - Las DLL de CUDA (cuBLAS y cuDNN) no van en el paquete: si la aplicación detecta una GPU NVIDIA, las descarga de PyPI en `%LOCALAPPDATA%\Colloquia\cuda`.
+- Para incluir whisper.cpp, define `WHISPER_CLI` con la ruta a `whisper-cli` antes de ejecutar PyInstaller; la CI lo compila con Vulkan (Windows y Linux) o Metal (macOS). Sin él, Colloquia usa solo faster-whisper. Sus modelos (GGML, unos 575 MB el Turbo) se descargan aparte la primera vez.
 - El instalador de Windows se crea con Inno Setup: `iscc packaging\colloquia.iss`.
 - El flujo `.github/workflows/build.yml` compila Windows, macOS y Linux. Se ejecuta a mano o al subir una etiqueta `v*`; en ese caso crea un borrador de *release* con los instaladores.
 
