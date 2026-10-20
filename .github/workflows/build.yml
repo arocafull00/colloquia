@@ -100,7 +100,7 @@ jobs:
       - name: Dependencias
         run: |
           sudo apt-get update
-          sudo apt-get install -y libportaudio2 libxcb-cursor0
+          sudo apt-get install -y libportaudio2 libxcb-cursor0 libvulkan-dev
           python -m pip install -r requirements.txt pyinstaller pillow
       - name: whisper.cpp (Vulkan)
         run: |
