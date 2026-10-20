@@ -51,11 +51,17 @@ def secs(t):
     return f"{t:.1f}".replace(".", ",") + " s"
 
 
-def load_whisper(name):
+def load_whisper(name, status=lambda *a: None):
     from faster_whisper import WhisperModel
 
+    cuda = WIN and models.cuda_ready() and os.environ.get("COLLOQUIA_ENGINE") != "whispercpp"
+    if not cuda and models.whisper_cpp_wanted():
+        import whisper_cpp
+
+        models.ensure_ggml(name, status)
+        return whisper_cpp.Model(models.whisper_cli(), models.ggml_path(name), THREADS), "GPU"
     path = models.whisper_path(name) or name
-    if WIN and models.cuda_ready():
+    if cuda:
         add_cuda_dirs()
         try:
             model = WhisperModel(path, device="cuda", compute_type="float16")
@@ -91,7 +97,7 @@ def pcm_to_outputs(session_dir, rate, status):
 
 
 def transcribe(audio, cfg, status):
-    model, device = load_whisper(cfg["model"])
+    model, device = load_whisper(cfg["model"], status)
     duration = len(audio) / RATE or 1
     verbatim = cfg.get("verbatim", True)
     segments, _ = model.transcribe(
@@ -110,6 +116,8 @@ def transcribe(audio, cfg, status):
         if not any(h in seg.text.lower() for h in HALLUCINATIONS):
             words.extend([w.start, w.end, w.word, round(w.probability, 3)] for w in seg.words or [] if w.word.strip())
         status("Transcribiendo…", min(1.0, seg.end / duration))
+    if getattr(model, "backend", "GPU") in (None, "CPU"):
+        device = "CPU"
     del model
     gc.collect()
     return words, device

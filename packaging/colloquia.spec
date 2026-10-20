@@ -9,6 +9,8 @@ ICON = os.path.join(SPECPATH, "colloquia.png")
 ICO = os.path.join(SPECPATH, "colloquia.ico")
 
 binaries = collect_dynamic_libs("ctranslate2") + collect_dynamic_libs("sherpa_onnx")
+if os.environ.get("WHISPER_CLI"):
+    binaries.append((os.environ["WHISPER_CLI"], "whisper-cpp"))
 
 a = Analysis(
     [os.path.join(ROOT, "colloquia.py")],

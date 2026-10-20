@@ -1,6 +1,7 @@
 import glob
 import json
 import os
+import re
 import ssl
 import sys
 import tarfile
@@ -10,7 +11,7 @@ import zipfile
 
 import truststore
 
-from config import CUDA_DIR, HERE, MODELS_DIR, WIN
+from config import CUDA_DIR, HERE, MAC, MODELS_DIR, WIN
 
 RELEASES = "https://github.com/k2-fsa/sherpa-onnx/releases/download"
 SEGMENTATION_URL = f"{RELEASES}/speaker-segmentation-models/sherpa-onnx-pyannote-segmentation-3-0.tar.bz2"
@@ -19,6 +20,8 @@ LOCAL_DIR = os.path.join(HERE, "models")
 LOCK = threading.Lock()
 CUDA_PACKAGES = ["nvidia-cublas-cu12", "nvidia-cudnn-cu12", "nvidia-cuda-nvrtc-cu12"]
 PACKAGES = getattr(sys, "_MEIPASS", os.path.join(sys.prefix, "Lib", "site-packages"))
+GGML_URL = "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-{}.bin"
+GGML = {"large-v3-turbo": "large-v3-turbo-q5_0", "large-v3": "large-v3-q5_0", "medium": "medium-q5_0", "small": "small-q5_1"}
 
 
 def segmentation_path():
@@ -92,6 +95,64 @@ def ensure_cuda(status):
             z.extractall(tmp, [m for m in z.namelist() if m.startswith("nvidia/") and m.lower().endswith(".dll")])
         os.remove(wheel)
     os.replace(tmp, CUDA_DIR)
+
+
+def whisper_cli():
+    exe = "whisper-cli.exe" if WIN else "whisper-cli"
+    for p in (os.environ.get("COLLOQUIA_WHISPER_CLI"), os.path.join(PACKAGES, "whisper-cpp", exe), os.path.join(HERE, "whisper-cpp", exe)):
+        if p and os.path.exists(p):
+            return p
+    return None
+
+
+def ggml_path(name):
+    return _find(f"ggml-{GGML.get(name, name)}.bin")
+
+
+def gpu_names():
+    import ctypes
+    from ctypes import wintypes
+
+    class DISPLAY_DEVICEW(ctypes.Structure):
+        _fields_ = [
+            ("cb", wintypes.DWORD),
+            ("DeviceName", wintypes.WCHAR * 32),
+            ("DeviceString", wintypes.WCHAR * 128),
+            ("StateFlags", wintypes.DWORD),
+            ("DeviceID", wintypes.WCHAR * 128),
+            ("DeviceKey", wintypes.WCHAR * 128),
+        ]
+
+    names, i = set(), 0
+    d = DISPLAY_DEVICEW(cb=ctypes.sizeof(DISPLAY_DEVICEW))
+    while ctypes.windll.user32.EnumDisplayDevicesW(None, i, ctypes.byref(d), 0):
+        names.add(d.DeviceString)
+        i += 1
+    return names
+
+
+def has_gpu():
+    if MAC:
+        import platform
+
+        return platform.machine() == "arm64"
+    if WIN:
+        return any(re.search(r"nvidia|amd|radeon|intel.*(arc|iris|uhd)", n, re.I) for n in gpu_names())
+    return bool(glob.glob("/dev/dri/renderD*"))
+
+
+def whisper_cpp_wanted():
+    engine = os.environ.get("COLLOQUIA_ENGINE")
+    if engine in ("faster", "whispercpp"):
+        return engine == "whispercpp" and bool(whisper_cli())
+    return bool(whisper_cli()) and has_gpu()
+
+
+def ensure_ggml(name, status):
+    os.makedirs(MODELS_DIR, exist_ok=True)
+    if not ggml_path(name):
+        file = f"ggml-{GGML.get(name, name)}.bin"
+        _download(GGML_URL.format(GGML.get(name, name)), os.path.join(MODELS_DIR, file), lambda p: status(f"Descargando modelo de transcripción {name}…", p))
 
 
 def _open(url):
