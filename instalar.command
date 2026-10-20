@@ -22,15 +22,15 @@ fail() {
 
 PY=""
 for c in python3.14 python3.13 python3.12 python3.11 python3.10 python3; do
-    if command -v "$c" >/dev/null 2>&1 && "$c" -c 'import sys, tkinter; sys.exit(sys.version_info < (3, 10))' >/dev/null 2>&1; then
+    if command -v "$c" >/dev/null 2>&1 && "$c" -c 'import sys; sys.exit(sys.version_info < (3, 10))' >/dev/null 2>&1; then
         PY="$c"
         break
     fi
 done
 if [ -z "$PY" ]; then
-    echo "  No se ha encontrado Python 3.10 o superior con Tkinter."
+    echo "  No se ha encontrado Python 3.10 o superior."
     echo "  Instálalo desde https://www.python.org/downloads/macos/"
-    echo "  (o con Homebrew: brew install python@3.12 python-tk@3.12)"
+    echo "  (o con Homebrew: brew install python@3.12)"
     echo "  y vuelve a ejecutar este instalador."
     finish 1
 fi

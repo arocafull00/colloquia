@@ -3,7 +3,8 @@ sherpa-onnx
 sounddevice
 numpy
 lameenc
-customtkinter
+pywebview; sys_platform != "linux"
+pywebview[qt]; sys_platform == "linux"
 nvidia-cublas-cu12; sys_platform == "win32"
 nvidia-cudnn-cu12==9.*; sys_platform == "win32"
 av<19

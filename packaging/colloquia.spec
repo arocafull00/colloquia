@@ -7,6 +7,7 @@ ROOT = os.path.dirname(SPECPATH)
 VERSION = os.environ.get("COLLOQUIA_VERSION", "1.0.0")
 CUDA = os.environ.get("COLLOQUIA_CUDA") == "1"
 ICON = os.path.join(SPECPATH, "colloquia.png")
+ICO = os.path.join(SPECPATH, "colloquia.ico")
 
 binaries = collect_dynamic_libs("ctranslate2") + collect_dynamic_libs("sherpa_onnx")
 if CUDA:
@@ -17,9 +18,9 @@ a = Analysis(
     [os.path.join(ROOT, "colloquia.py")],
     pathex=[ROOT],
     binaries=binaries,
-    datas=collect_data_files("faster_whisper"),
+    datas=collect_data_files("faster_whisper") + [(os.path.join(ROOT, "ui.html"), "."), (ICON, "packaging"), (ICO, "packaging")],
     runtime_hooks=[os.path.join(SPECPATH, "pyi_rth_portaudio.py")] if sys.platform.startswith("linux") else [],
-    excludes=["matplotlib", "pandas", "scipy", "torch", "IPython", "pytest"],
+    excludes=["tkinter", "matplotlib", "pandas", "scipy", "torch", "IPython", "pytest"],
 )
 pyz = PYZ(a.pure)
 
@@ -32,7 +33,7 @@ def exe(name, console):
         exclude_binaries=True,
         name=name,
         console=console,
-        icon=ICON,
+        icon=ICO if sys.platform == "win32" else ICON,
         upx=False,
         argv_emulation=False,
     )

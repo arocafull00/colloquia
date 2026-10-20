@@ -15,16 +15,16 @@ fail() {
 
 PY=""
 for c in python3.14 python3.13 python3.12 python3.11 python3.10 python3; do
-    if command -v "$c" >/dev/null 2>&1 && "$c" -c 'import sys, tkinter, venv; sys.exit(sys.version_info < (3, 10))' >/dev/null 2>&1; then
+    if command -v "$c" >/dev/null 2>&1 && "$c" -c 'import sys, venv; sys.exit(sys.version_info < (3, 10))' >/dev/null 2>&1; then
         PY="$c"
         break
     fi
 done
 if [ -z "$PY" ]; then
-    echo "  No se ha encontrado Python 3.10 o superior con Tkinter y venv."
-    echo "  En Debian/Ubuntu:  sudo apt install python3 python3-venv python3-tk libportaudio2"
-    echo "  En Fedora:         sudo dnf install python3 python3-tkinter portaudio"
-    echo "  En Arch:           sudo pacman -S python tk portaudio"
+    echo "  No se ha encontrado Python 3.10 o superior con venv."
+    echo "  En Debian/Ubuntu:  sudo apt install python3 python3-venv libportaudio2 libxcb-cursor0"
+    echo "  En Fedora:         sudo dnf install python3 portaudio xcb-util-cursor"
+    echo "  En Arch:           sudo pacman -S python portaudio xcb-util-cursor"
     exit 1
 fi
 

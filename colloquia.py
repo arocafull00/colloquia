@@ -36,9 +36,9 @@ def main():
         sys.exit(pipeline.main(args))
     if already_running():
         return
-    from ui import App
+    import ui
 
-    App().mainloop()
+    ui.main()
 
 
 if __name__ == "__main__":

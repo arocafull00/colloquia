@@ -68,7 +68,7 @@ Necesitas Python 3.10 o superior.
 - **macOS:** doble clic en `instalar.command`. Crea `~/Applications/Colloquia.app`.
 - **Linux:** instala las dependencias del sistema y ejecuta el script; crea un acceso en el menú de aplicaciones.
   ```bash
-  sudo apt install python3 python3-venv python3-tk libportaudio2
+  sudo apt install python3 python3-venv libportaudio2 libxcb-cursor0
   ```
   ```bash
   ./instalar.sh

@@ -1,0 +1,1093 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Colloquia</title>
+<style>
+:root {
+  --bg: #f3f1ec;
+  --panel: #fbfaf7;
+  --card: #f6f4ef;
+  --field: #ffffff;
+  --line: #e6e2d9;
+  --line-strong: #d8d3c8;
+  --text: #1d1c1a;
+  --muted: #86827a;
+  --hover: #efece5;
+  --active: #e8e4da;
+  --hero: #161513;
+  --hero-text: #f6f4ef;
+  --hero-muted: #b3aea4;
+  --accent: #1d1c1a;
+  --accent-text: #fbfaf7;
+  --brand: #26857b;
+  --danger: #d23f3f;
+  --rec: #e5484d;
+  --green: #2fb36d;
+  --orange: #f5a524;
+  --voice1: #2f6fed;
+  --voice2: #f5a524;
+  --warn-bg: #fdf3e1;
+  --warn-line: #f1dcb4;
+  --shadow: 0 1px 2px rgba(30, 25, 15, .05), 0 8px 24px rgba(30, 25, 15, .06);
+  --sans: "Segoe UI Variable Text", "Segoe UI", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #171716; --panel: #1e1e1c; --card: #242321; --field: #2a2927; --line: #2f2e2b; --line-strong: #3b3a36;
+    --text: #edebe7; --muted: #8f8b84; --hover: #272624; --active: #2e2d2a; --hero: #0e0e0d; --hero-text: #f1efea;
+    --hero-muted: #9a958c; --accent: #edebe7; --accent-text: #1a1a19; --brand: #3fb3a5; --danger: #ff6b6b;
+    --voice1: #5b8dff; --warn-bg: #2f2718; --warn-line: #4a3c20;
+    --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 8px 24px rgba(0, 0, 0, .25);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #171716; --panel: #1e1e1c; --card: #242321; --field: #2a2927; --line: #2f2e2b; --line-strong: #3b3a36;
+  --text: #edebe7; --muted: #8f8b84; --hover: #272624; --active: #2e2d2a; --hero: #0e0e0d; --hero-text: #f1efea;
+  --hero-muted: #9a958c; --accent: #edebe7; --accent-text: #1a1a19; --brand: #3fb3a5; --danger: #ff6b6b;
+  --voice1: #5b8dff; --warn-bg: #2f2718; --warn-line: #4a3c20;
+  --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 8px 24px rgba(0, 0, 0, .25);
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body {
+  display: flex;
+  background: var(--bg);
+  color: var(--text);
+  font: 14px/1.5 var(--sans);
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+  overflow: hidden;
+}
+button, input, select { font: inherit; color: inherit; }
+button { cursor: pointer; }
+button:disabled { cursor: default; }
+svg { flex: none; }
+.icon { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.tnum { font-variant-numeric: tabular-nums; }
+
+.side { width: 228px; flex: none; display: flex; flex-direction: column; padding: 22px 12px 14px; }
+.brand { display: flex; align-items: center; gap: 9px; padding: 0 10px 26px; font-size: 21px; font-weight: 700; letter-spacing: -.02em; }
+.brand-mark { display: grid; place-items: center; width: 26px; height: 26px; border-radius: 8px; background: linear-gradient(180deg, #2a9d8f, #1f5068); color: #fff; }
+.brand-mark svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+nav { display: flex; flex-direction: column; gap: 2px; }
+nav button {
+  display: flex; align-items: center; gap: 12px; padding: 8px 10px;
+  border: 0; border-radius: 9px; background: none; text-align: left; font-size: 14.5px; font-weight: 500;
+}
+nav button:hover:not(:disabled) { background: var(--hover); }
+nav button.on { background: var(--active); }
+nav button:disabled { opacity: .4; }
+nav .badge { margin-left: auto; min-width: 20px; padding: 0 6px; border-radius: 99px; background: var(--orange); color: #1d1c1a; font-size: 11.5px; font-weight: 700; text-align: center; line-height: 20px; }
+.side-foot { margin-top: auto; padding: 14px 12px; border: 1px solid var(--line); border-radius: 14px; background: var(--panel); display: flex; gap: 10px; align-items: flex-start; }
+.side-foot .dot { margin-top: 6px; }
+.dot { width: 9px; height: 9px; border-radius: 50%; flex: none; background: #8a8f98; }
+.dot.idle { background: var(--green); }
+.dot.recording { background: var(--rec); box-shadow: 0 0 0 4px rgba(229, 72, 77, .18); animation: pulse 1.2s ease-in-out infinite; }
+.dot.paused { background: var(--orange); }
+.dot.processing { background: var(--orange); animation: pulse 1.2s ease-in-out infinite; }
+.dot.loading { animation: pulse 1.2s ease-in-out infinite; }
+.dot.error { background: var(--danger); }
+@keyframes pulse { 50% { opacity: .35; } }
+.side-foot b { display: block; font-size: 13px; font-weight: 600; }
+.side-foot small { display: block; color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
+
+main {
+  flex: 1; min-width: 0; margin: 10px 10px 10px 0;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 20px;
+  overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent;
+}
+main::-webkit-scrollbar { width: 10px; }
+main::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: 10px; border: 3px solid var(--panel); }
+.page, .view { display: none; }
+.page { max-width: 1080px; padding: 40px 44px 56px; }
+.page.on, .view.on { display: block; }
+h1 { margin: 0 0 6px; font-size: 26px; font-weight: 600; letter-spacing: -.02em; }
+.lead { margin: 0 0 28px; color: var(--muted); max-width: 580px; }
+
+.home-grid { display: grid; grid-template-columns: minmax(0, 1fr) 250px; gap: 22px; align-items: start; margin-top: 24px; }
+.hero {
+  display: flex; flex-direction: column; gap: 22px;
+  padding: 30px 32px; border-radius: 16px; background: var(--hero); color: var(--hero-text);
+  background-image: radial-gradient(circle at 92% 18%, rgba(42, 157, 143, .30), transparent 44%), radial-gradient(circle at 68% 125%, rgba(90, 140, 255, .18), transparent 45%);
+}
+.hero h2 { margin: 0 0 8px; font: 400 28px/1.15 var(--serif); letter-spacing: -.01em; }
+.hero h2 i { font-style: italic; }
+.hero p { margin: 0; color: var(--hero-muted); max-width: 520px; line-height: 1.7; }
+.hero-form { display: flex; gap: 10px; }
+.hero-field {
+  flex: 1; min-width: 0; padding: 11px 14px; border-radius: 10px; outline: none; user-select: text;
+  border: 1px solid rgba(255, 255, 255, .14); background: rgba(255, 255, 255, .07); color: var(--hero-text);
+}
+.hero-field::placeholder { color: #8e897f; }
+.hero-field:focus { border-color: rgba(255, 255, 255, .4); background: rgba(255, 255, 255, .1); }
+.rec-btn {
+  flex: none; display: flex; align-items: center; gap: 9px; padding: 0 20px; border: 0; border-radius: 10px;
+  background: var(--rec); color: #fff; font-weight: 600; font-size: 14.5px; transition: background .12s, transform .12s;
+}
+.rec-btn:hover { background: #d23c41; }
+.rec-btn:active { transform: scale(.98); }
+.rec-btn i { width: 10px; height: 10px; border-radius: 50%; background: #fff; }
+
+.stats { border: 1px solid var(--line); border-radius: 16px; background: var(--card); padding: 22px 24px; }
+.stat { display: flex; align-items: baseline; gap: 8px; }
+.stat + .stat { margin-top: 14px; }
+.stat strong { font: 400 30px/1 var(--serif); letter-spacing: -.02em; }
+.stat span { color: var(--muted); font-size: 14px; }
+
+.notice { display: flex; align-items: center; gap: 14px; margin-top: 18px; padding: 14px 16px 14px 18px; border: 1px solid var(--warn-line); border-radius: 14px; background: var(--warn-bg); }
+.notice .icon { color: var(--orange); }
+.notice div { flex: 1; min-width: 0; }
+.notice b { display: block; font-weight: 600; }
+.notice small { display: block; color: var(--muted); font-size: 13px; overflow-wrap: anywhere; }
+
+.card { border: 1px solid var(--line); border-radius: 16px; background: var(--field); max-width: 720px; }
+.card.wide { max-width: none; }
+.card-title { max-width: 720px; margin: 30px 0 10px 2px; color: var(--muted); font-size: 12px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; }
+.card-title:first-of-type { margin-top: 0; }
+.home-grid .card-title { margin-top: 26px; }
+.setting { display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 16px 20px; }
+.setting + .setting { border-top: 1px solid var(--line); }
+.setting .label { min-width: 0; }
+.setting .label b { display: block; font-weight: 600; }
+.setting .label small { display: block; color: var(--muted); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.control { display: flex; align-items: center; gap: 10px; flex: none; }
+
+.meter { display: flex; gap: 3px; align-items: center; height: 18px; }
+.meter i { width: 4px; height: 100%; border-radius: 2px; background: var(--line-strong); transition: background .06s; }
+.meter i.lit { background: var(--green); }
+.meter i.hot { background: var(--orange); }
+
+.select { position: relative; width: 300px; }
+.select select {
+  width: 100%; appearance: none; -webkit-appearance: none; padding: 8px 34px 8px 12px;
+  border: 1px solid var(--line-strong); border-radius: 9px; background: var(--field); outline: none; cursor: pointer;
+}
+.select select:hover { background: var(--hover); }
+.select select:focus-visible, .field:focus { border-color: var(--text); }
+.select::after {
+  content: ""; position: absolute; right: 14px; top: 50%; width: 6px; height: 6px; margin-top: -5px;
+  border: solid var(--muted); border-width: 0 1.6px 1.6px 0; transform: rotate(45deg); pointer-events: none;
+}
+.select option { background: var(--field); color: var(--text); }
+.field { width: 300px; padding: 8px 12px; border: 1px solid var(--line-strong); border-radius: 9px; background: var(--field); outline: none; user-select: text; }
+
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 8px 15px; border: 1px solid var(--line-strong); border-radius: 9px; background: var(--field); font-weight: 600; font-size: 13.5px; white-space: nowrap; }
+.btn:hover:not(:disabled) { background: var(--hover); }
+.btn:disabled { opacity: .6; }
+.btn .icon { width: 16px; height: 16px; }
+.btn .icon.solid { fill: currentColor; stroke: none; }
+.btn.primary { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
+.btn.primary:hover:not(:disabled) { background: var(--accent); opacity: .9; }
+.btn.danger { background: var(--rec); border-color: var(--rec); color: #fff; }
+.btn.danger:hover:not(:disabled) { background: #d23c41; }
+.btn.warn { background: var(--orange); border-color: var(--orange); color: #1d1c1a; }
+.btn.warn:hover:not(:disabled) { background: #e8981a; }
+.btn.lg { padding: 12px 22px; font-size: 14.5px; border-radius: 11px; }
+.btn.sm { padding: 5px 11px; font-size: 13px; }
+.link { padding: 0; border: 0; background: none; color: var(--muted); font-weight: 600; font-size: 13px; }
+.link:hover { color: var(--text); }
+
+.switch { position: relative; width: 40px; height: 24px; flex: none; }
+.switch input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; z-index: 1; }
+.switch span { position: absolute; inset: 0; border-radius: 99px; background: var(--line-strong); transition: background .18s; }
+.switch span::after { content: ""; position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(0, 0, 0, .25); transition: transform .18s; }
+.switch input:checked + span { background: var(--green); }
+.switch input:checked + span::after { transform: translateX(16px); }
+.switch input:focus-visible + span { outline: 2px solid var(--text); outline-offset: 2px; }
+
+.group + .group { margin-top: 26px; }
+.group-title { margin: 0 0 10px 2px; color: var(--muted); font-size: 12px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; }
+.section-head { display: flex; align-items: baseline; justify-content: space-between; margin: 30px 2px 10px; }
+.section-head .group-title { margin: 0; }
+.list { border: 1px solid var(--line); border-radius: 14px; background: var(--field); overflow: hidden; }
+.row { display: flex; align-items: center; gap: 22px; padding: 12px 14px 12px 18px; min-height: 58px; }
+.row + .row { border-top: 1px solid var(--line); }
+.row:hover { background: var(--hover); }
+.row time { width: 46px; flex: none; color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; }
+.row .main { flex: 1; min-width: 0; }
+.row .main b { display: block; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.row .main b.untitled { color: var(--muted); font-weight: 500; }
+.row .main small { display: block; color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pill { flex: none; padding: 2px 9px; border-radius: 99px; font-size: 12px; font-weight: 600; background: var(--active); color: var(--muted); }
+.pill.warn { background: var(--warn-bg); color: #b9771a; border: 1px solid var(--warn-line); }
+.pill.live { background: rgba(229, 72, 77, .12); color: var(--rec); }
+.actions { display: flex; gap: 6px; align-items: center; }
+.ghost { display: grid; place-items: center; width: 32px; height: 32px; border: 0; border-radius: 8px; background: none; color: var(--muted); opacity: 0; transition: opacity .12s; }
+.row:hover .ghost, .ghost:focus-visible { opacity: 1; }
+.ghost:hover { background: var(--active); color: var(--text); }
+.empty { padding: 44px 24px; text-align: center; color: var(--muted); border: 1px dashed var(--line-strong); border-radius: 14px; }
+.empty b { display: block; margin-bottom: 4px; color: var(--text); font-weight: 600; }
+
+.stage { max-width: 760px; margin: 0 auto; }
+.rec-hero { margin-top: 8px; padding: 34px 36px 30px; text-align: center; align-items: center; }
+.rec-state { display: inline-flex; align-items: center; gap: 10px; padding: 5px 14px 5px 12px; border-radius: 99px; background: rgba(255, 255, 255, .08); font-weight: 600; font-size: 13.5px; }
+.rec-state .dot.paused { box-shadow: none; }
+.timer { margin: 14px 0 2px; font: 400 76px/1 var(--serif); letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+.rec-session { color: var(--hero-muted); font-size: 13px; }
+.wave { display: flex; align-items: center; justify-content: center; gap: 3px; height: 72px; width: 100%; margin: 22px 0 4px; }
+.wave i { flex: 1; max-width: 6px; min-height: 3px; border-radius: 3px; background: rgba(255, 255, 255, .85); transition: height .08s; }
+.wave.paused i { background: rgba(255, 255, 255, .25); }
+.rec-alert { min-height: 22px; color: var(--orange); font-weight: 600; font-size: 13.5px; }
+.rec-alert.err { color: #ff8a8a; }
+.rec-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 18px; }
+.foot-note { margin: 18px 0 0; text-align: center; color: var(--muted); font-size: 13px; }
+
+.steps .setting { justify-content: flex-start; gap: 14px; padding: 14px 20px; }
+.step-icon { display: grid; place-items: center; width: 26px; height: 26px; flex: none; border-radius: 50%; border: 1.6px solid var(--line-strong); color: transparent; }
+.step-icon .icon { width: 14px; height: 14px; stroke-width: 2.6; }
+.step.active .step-icon { border-color: var(--line-strong); border-top-color: var(--orange); animation: spin .9s linear infinite; }
+.step.done .step-icon { border-color: var(--green); background: var(--green); color: #fff; }
+.step-name { color: var(--muted); font-weight: 500; }
+.step.active .step-name { color: var(--text); font-weight: 600; }
+.step.done .step-name { color: var(--text); }
+@keyframes spin { to { transform: rotate(360deg); } }
+.progress { position: relative; height: 8px; margin: 22px 0 10px; border-radius: 99px; background: var(--active); overflow: hidden; }
+.progress i { position: absolute; inset: 0 auto 0 0; width: 0; border-radius: 99px; background: var(--orange); transition: width .3s; }
+.progress.indeterminate i { width: 35%; animation: slide 1.4s ease-in-out infinite; }
+@keyframes slide { from { left: -35%; } to { left: 100%; } }
+.proc-meta { display: flex; justify-content: space-between; gap: 16px; color: var(--muted); font-size: 13px; }
+.proc-meta span:first-child { color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.title-row { display: flex; align-items: center; gap: 12px; margin-bottom: 6px; }
+.title-row h1 { margin: 0; }
+.badge-icon { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%; color: #fff; }
+.badge-icon.ok { background: var(--green); }
+.badge-icon.bad { background: var(--danger); }
+.badge-icon .icon { width: 17px; height: 17px; stroke-width: 2.4; }
+.voice { display: flex; gap: 16px; padding: 16px 20px; }
+.voice + .voice { border-top: 1px solid var(--line); }
+.voice .bar { width: 4px; flex: none; border-radius: 4px; }
+.voice b { display: block; font-weight: 600; }
+.voice p { margin: 2px 0 0; color: var(--muted); font: italic 15px/1.55 var(--serif); user-select: text; }
+.voice p.none { font: 13px/1.5 var(--sans); }
+.result-actions { display: flex; gap: 10px; margin-top: 26px; max-width: 720px; }
+.result-actions .spacer { flex: 1; }
+.files { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+.file { display: inline-flex; align-items: center; gap: 7px; padding: 4px 11px 4px 9px; border: 1px solid var(--line); border-radius: 8px; background: var(--field); font-size: 13px; font-weight: 500; }
+.file .icon { width: 15px; height: 15px; color: var(--muted); }
+.error-box { max-width: 720px; padding: 16px 18px; border: 1px solid var(--line); border-radius: 14px; background: var(--field); font: 13px/1.6 ui-monospace, "Cascadia Mono", Consolas, monospace; white-space: pre-wrap; overflow-wrap: anywhere; user-select: text; }
+.privacy { display: flex; gap: 12px; max-width: 720px; margin-top: 26px; color: var(--muted); font-size: 13px; }
+.privacy .icon { color: var(--brand); margin-top: 1px; }
+
+.back { display: inline-flex; align-items: center; gap: 6px; margin: -14px 0 14px -2px; }
+.back .icon { width: 15px; height: 15px; }
+.tr-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; max-width: 760px; }
+.tr-head .lead { margin-bottom: 0; }
+.tr-head .actions { flex: none; }
+.transcript { max-width: 760px; margin-top: 26px; border: 1px solid var(--line); border-radius: 16px; background: var(--field); padding: 8px 0; user-select: text; }
+.turn { display: grid; grid-template-columns: 74px minmax(0, 1fr); gap: 4px 14px; padding: 12px 24px 12px 20px; }
+.turn time { padding-top: 2px; color: var(--muted); font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.turn b { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; }
+.turn b::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--c); }
+.turn p { grid-column: 2; margin: 0; font: 16px/1.65 var(--serif); overflow-wrap: anywhere; }
+.turn.silence { padding-top: 6px; padding-bottom: 6px; }
+.turn.silence p { grid-row: 1; color: var(--muted); font: italic 13px/1.5 var(--sans); }
+.turn .pause { color: var(--muted); font: italic 13px var(--sans); }
+.turn .doubt { text-decoration: underline dotted var(--orange) 2px; text-underline-offset: 4px; }
+.turn .doubt::after { content: "?"; margin-left: 1px; color: var(--orange); font: 600 11px var(--sans); vertical-align: super; }
+.row.clickable { cursor: pointer; }
+
+.toast {
+  position: fixed; left: 50%; bottom: 26px; transform: translate(-50%, 12px); opacity: 0; pointer-events: none;
+  display: flex; align-items: center; gap: 8px; padding: 9px 16px; border-radius: 10px;
+  background: var(--accent); color: var(--accent-text); font-weight: 500; font-size: 13.5px; box-shadow: var(--shadow);
+  transition: opacity .18s, transform .18s; z-index: 20;
+}
+.toast.on { opacity: 1; transform: translate(-50%, 0); }
+.toast .icon { width: 16px; height: 16px; stroke-width: 2.2; }
+
+.modal { position: fixed; inset: 0; z-index: 10; display: grid; place-items: center; padding: 24px; background: rgba(20, 18, 14, .38); opacity: 0; pointer-events: none; transition: opacity .15s; }
+.modal.on { opacity: 1; pointer-events: auto; }
+.dialog { width: 100%; max-width: 420px; padding: 24px 24px 20px; border: 1px solid var(--line); border-radius: 16px; background: var(--panel); box-shadow: var(--shadow); transform: translateY(6px) scale(.98); transition: transform .15s; }
+.modal.on .dialog { transform: none; }
+.dialog h3 { margin: 0 0 6px; font-size: 17px; font-weight: 600; }
+.dialog p { margin: 0; color: var(--muted); white-space: pre-line; overflow-wrap: anywhere; }
+.dialog .buttons { display: flex; justify-content: flex-end; gap: 8px; margin-top: 22px; }
+
+@media (max-width: 960px) {
+  .home-grid { grid-template-columns: 1fr; }
+  .stats { display: flex; gap: 28px; flex-wrap: wrap; }
+  .stat + .stat { margin-top: 0; }
+  .side { width: 196px; }
+  .page { padding: 32px 30px 48px; }
+  .select, .field { width: 240px; }
+  .timer { font-size: 64px; }
+}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute">
+  <symbol id="i-mic" viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21M8.5 21h7"/></symbol>
+  <symbol id="i-list" viewBox="0 0 24 24"><rect x="3.5" y="4" width="17" height="16" rx="2.5"/><path d="M7.5 9h9M7.5 12.5h9M7.5 16h5"/></symbol>
+  <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 6h9M17 6h3M4 12h3M11 12h9M4 18h11M19 18h1"/><circle cx="15" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="18" r="2"/></symbol>
+  <symbol id="i-folder" viewBox="0 0 24 24"><path d="M3.5 7.5A1.5 1.5 0 0 1 5 6h4l2 2.2h8a1.5 1.5 0 0 1 1.5 1.5v8.3A1.5 1.5 0 0 1 19 19.5H5A1.5 1.5 0 0 1 3.5 18z"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></symbol>
+  <symbol id="i-swap" viewBox="0 0 24 24"><path d="M7 4 3.5 7.5 7 11M3.5 7.5H17M17 13l3.5 3.5L17 20M20.5 16.5H7"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 4 2.8 19.5h18.4z"/><path d="M12 10v4.5M12 17.2v.1"/></symbol>
+  <symbol id="i-pause" viewBox="0 0 24 24"><path d="M9 5.5v13M15 5.5v13"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="M7.5 5v14l11-7z"/></symbol>
+  <symbol id="i-stop" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/></symbol>
+  <symbol id="i-file" viewBox="0 0 24 24"><path d="M6.5 3h7l4 4v13.5h-11z"/><path d="M13.5 3v4h4"/></symbol>
+  <symbol id="i-music" viewBox="0 0 24 24"><path d="M9 18V5.5l10-2V16"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="16.5" cy="16" r="2.5"/></symbol>
+  <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="10.5" width="14" height="10" rx="2"/><path d="M8.5 10.5V8a3.5 3.5 0 0 1 7 0v2.5"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-back" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></symbol>
+  <symbol id="i-copy" viewBox="0 0 24 24"><rect x="8.5" y="8.5" width="11" height="12" rx="2"/><path d="M15.5 8.5V5.5a2 2 0 0 0-2-2h-7a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h2"/></symbol>
+  <symbol id="i-retry" viewBox="0 0 24 24"><path d="M4.5 12a7.5 7.5 0 1 0 2.2-5.3M4.5 4.5v4h4"/></symbol>
+</svg>
+
+<aside class="side">
+  <div class="brand">
+    <span class="brand-mark"><svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3" fill="currentColor"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21M8.5 21h7"/></svg></span>
+    Colloquia
+  </div>
+  <nav>
+    <button data-page="record"><svg class="icon"><use href="#i-mic"/></svg>Grabar</button>
+    <button data-page="sessions"><svg class="icon"><use href="#i-list"/></svg>Sesiones<span class="badge" id="pendingBadge" hidden></span></button>
+    <button data-page="settings" id="navSettings"><svg class="icon"><use href="#i-sliders"/></svg>Ajustes</button>
+  </nav>
+  <div class="side-foot">
+    <span class="dot loading" id="dot"></span>
+    <div><b id="stateLabel">Cargando…</b><small id="stateDetail"></small></div>
+  </div>
+</aside>
+
+<main>
+  <section class="page" id="page-record">
+    <div class="view" id="view-home">
+      <h1 id="greeting">Hola</h1>
+      <div class="home-grid">
+        <div>
+          <div class="hero">
+            <div>
+              <h2>Graba la sesión. <i>Colloquia</i> la transcribe.</h2>
+              <p>Audio y transcripción literal, con quién habla en cada momento. Todo se procesa en este equipo.</p>
+            </div>
+            <form class="hero-form" id="recForm">
+              <input class="hero-field" id="sessionName" placeholder="Nombre de la sesión (opcional)" autocomplete="off" spellcheck="false">
+              <button class="rec-btn" type="submit"><i></i>Grabar</button>
+            </form>
+          </div>
+
+          <div class="notice" id="recoverBox" hidden>
+            <svg class="icon"><use href="#i-alert"/></svg>
+            <div><b>Hay una grabación sin procesar</b><small id="recoverText"></small></div>
+            <button class="btn warn" id="recoverBtn">Procesar</button>
+          </div>
+
+          <div class="card-title">Antes de empezar</div>
+          <div class="card wide">
+            <div class="setting">
+              <div class="label"><b>Micrófono</b><small id="homeMic"></small></div>
+              <div class="control"><div class="meter" id="homeMeter"></div></div>
+            </div>
+            <div class="setting">
+              <div class="label"><b>Carpeta de destino</b><small id="homeFolder"></small></div>
+              <div class="control"><button class="btn" data-action="chooseFolder">Cambiar</button></div>
+            </div>
+          </div>
+
+          <div id="recentBox"></div>
+        </div>
+        <div class="stats">
+          <div class="stat"><strong id="statSessions">0</strong><span id="statSessionsLabel">sesiones</span></div>
+          <div class="stat"><strong id="statTime">0</strong><span id="statTimeLabel">horas grabadas</span></div>
+          <div class="stat"><strong id="statWeek">0</strong><span>esta semana</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="view" id="view-recording">
+      <div class="stage">
+        <div class="hero rec-hero">
+          <span class="rec-state"><span class="dot recording" id="recDot"></span><span id="recState">Grabando</span></span>
+          <div>
+            <div class="timer" id="timer">00:00:00</div>
+            <div class="rec-session" id="recSession"></div>
+          </div>
+          <div class="wave" id="wave"></div>
+          <div class="rec-alert" id="recAlert"></div>
+        </div>
+        <div class="rec-actions">
+          <button class="btn lg" id="pauseBtn"></button>
+          <button class="btn lg danger" id="stopBtn"><svg class="icon solid"><use href="#i-stop"/></svg>Detener</button>
+        </div>
+        <p class="foot-note">El audio se guarda en disco continuamente. El equipo no entrará en suspensión mientras grabas.</p>
+      </div>
+    </div>
+
+    <div class="view" id="view-processing">
+      <h1>Procesando la sesión</h1>
+      <p class="lead">Todo se procesa en este equipo. Puede tardar unos minutos; no cierres Colloquia ni apagues el ordenador.</p>
+      <div class="card steps" id="steps"></div>
+      <div style="max-width:720px">
+        <div class="progress" id="progress"><i></i></div>
+        <div class="proc-meta"><span id="procText">Preparando…</span><span class="tnum" id="procElapsed"></span></div>
+      </div>
+    </div>
+
+    <div class="view" id="view-done">
+      <div class="title-row"><span class="badge-icon ok"><svg class="icon"><use href="#i-check"/></svg></span><h1>Sesión guardada</h1></div>
+      <p class="lead" id="doneInfo" style="margin-bottom:0"></p>
+      <div class="files">
+        <span class="file"><svg class="icon"><use href="#i-music"/></svg>sesion.mp3</span>
+        <span class="file"><svg class="icon"><use href="#i-file"/></svg>transcripcion.txt</span>
+      </div>
+      <div class="card-title" style="margin-top:30px">¿Están bien asignadas las voces?</div>
+      <div class="card" id="voices"></div>
+      <div class="result-actions">
+        <button class="btn" id="swapBtn"><svg class="icon"><use href="#i-swap"/></svg><span id="swapLabel">Intercambiar voces</span></button>
+        <span class="spacer"></span>
+        <button class="btn" data-action="reset"><svg class="icon"><use href="#i-plus"/></svg>Nueva sesión</button>
+        <button class="btn" data-action="openSession"><svg class="icon"><use href="#i-folder"/></svg>Abrir carpeta</button>
+        <button class="btn primary" data-action="viewSession"><svg class="icon"><use href="#i-file"/></svg>Ver transcripción</button>
+      </div>
+    </div>
+
+    <div class="view" id="view-error">
+      <div class="title-row"><span class="badge-icon bad"><svg class="icon"><use href="#i-x"/></svg></span><h1>No se pudo procesar la sesión</h1></div>
+      <p class="lead">La grabación está a salvo en la carpeta de la sesión. Puedes reintentarlo ahora o más tarde desde la pantalla de inicio.</p>
+      <div class="error-box" id="errorText"></div>
+      <div class="result-actions">
+        <span class="spacer"></span>
+        <button class="btn" data-action="reset">Volver</button>
+        <button class="btn primary" id="retryBtn"><svg class="icon"><use href="#i-retry"/></svg>Reintentar</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="page" id="page-sessions">
+    <h1>Sesiones</h1>
+    <p class="lead" id="sessionsLead"></p>
+    <div id="sessionsList"></div>
+  </section>
+
+  <section class="page" id="page-transcript">
+    <button class="link back" id="trBack"><svg class="icon"><use href="#i-back"/></svg><span></span></button>
+    <div class="tr-head">
+      <div><h1 id="trTitle"></h1><p class="lead" id="trInfo"></p></div>
+      <div class="actions">
+        <button class="btn" id="trCopy"><svg class="icon"><use href="#i-copy"/></svg>Copiar</button>
+        <button class="btn" id="trOpen"><svg class="icon"><use href="#i-folder"/></svg>Abrir carpeta</button>
+      </div>
+    </div>
+    <div class="transcript" id="trBody"></div>
+  </section>
+
+  <section class="page" id="page-settings">
+    <h1>Ajustes</h1>
+    <p class="lead">Los cambios se guardan al momento.</p>
+
+    <div class="card-title">Grabación</div>
+    <div class="card">
+      <div class="setting">
+        <div class="label"><b>Micrófono</b><small>Dispositivo de entrada</small></div>
+        <div class="control"><div class="select"><select data-key="device"></select></div></div>
+      </div>
+      <div class="setting">
+        <div class="label"><b>Carpeta de destino</b><small id="settingsFolder"></small></div>
+        <div class="control"><button class="btn" data-action="openRoot">Abrir</button><button class="btn" data-action="chooseFolder">Cambiar</button></div>
+      </div>
+    </div>
+
+    <div class="card-title">Transcripción</div>
+    <div class="card">
+      <div class="setting">
+        <div class="label"><b>Modelo</b><small>Más grande es más preciso, pero más lento</small></div>
+        <div class="control"><div class="select"><select data-key="model"></select></div></div>
+      </div>
+      <div class="setting">
+        <div class="label"><b>Idioma</b><small>Idioma en el que se habla en la sesión</small></div>
+        <div class="control"><div class="select"><select data-key="language"></select></div></div>
+      </div>
+      <div class="setting">
+        <div class="label"><b>Marcar silencios de</b><small>Duración mínima para anotar una pausa</small></div>
+        <div class="control"><div class="select"><select data-key="pause_min"></select></div></div>
+      </div>
+      <div class="setting">
+        <div class="label"><b>Transcripción literal</b><small>Conserva muletillas, repeticiones y titubeos</small></div>
+        <label class="switch"><input type="checkbox" data-key="verbatim"><span></span></label>
+      </div>
+      <div class="setting">
+        <div class="label"><b>Marcar palabras dudosas</b><small>Añade [?] a lo que conviene revisar escuchando el audio</small></div>
+        <label class="switch"><input type="checkbox" data-key="mark_doubtful"><span></span></label>
+      </div>
+      <div class="setting">
+        <div class="label"><b>Conservar el audio sin comprimir</b><small>Guarda también un .wav junto al MP3</small></div>
+        <label class="switch"><input type="checkbox" data-key="keep_wav"><span></span></label>
+      </div>
+    </div>
+
+    <div class="card-title">Voces</div>
+    <div class="card">
+      <div class="setting">
+        <div class="label"><b>Primera voz</b><small>Quien habla primero en la sesión</small></div>
+        <div class="control"><input class="field" data-role="0" autocomplete="off" spellcheck="false"></div>
+      </div>
+      <div class="setting">
+        <div class="label"><b>Segunda voz</b><small>La otra persona</small></div>
+        <div class="control"><input class="field" data-role="1" autocomplete="off" spellcheck="false"></div>
+      </div>
+    </div>
+
+    <div class="card-title">General</div>
+    <div class="card">
+      <div class="setting">
+        <div class="label"><b>Apariencia</b><small>Tema claro u oscuro</small></div>
+        <div class="control"><div class="select"><select data-key="appearance"></select></div></div>
+      </div>
+    </div>
+
+    <div class="privacy">
+      <svg class="icon"><use href="#i-lock"/></svg>
+      <span>Los modelos se descargan una sola vez. Después Colloquia funciona sin conexión y nunca envía audio ni texto fuera de este equipo.</span>
+    </div>
+  </section>
+</main>
+
+<div class="modal" id="modal">
+  <div class="dialog" role="dialog" aria-modal="true">
+    <h3 id="modalTitle"></h3>
+    <p id="modalText"></p>
+    <div class="buttons" id="modalButtons"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"><svg class="icon"><use href="#i-check"/></svg><span></span></div>
+
+<script>
+const $ = s => document.querySelector(s);
+const $$ = s => [...document.querySelectorAll(s)];
+const STAGES = ["Guardando MP3", "Transcribiendo", "Identificando voces", "Generando texto"];
+const WAVE_BARS = 72;
+const METER_BARS = 18;
+const state = { cfg: {}, options: {}, screen: { name: "home" }, banner: "", sessions: [], paused: false, page: "record", stage: -1, wave: [], transcript: null, back: "sessions" };
+
+const colloquia = {
+  ready: false,
+  queue: [],
+  receive(msg) {
+    if (this.ready) handle(msg);
+    else this.queue.push(msg);
+  },
+};
+
+function handle(msg) {
+  if (msg.type === "tick") tick(msg);
+  else if (msg.type === "screen") setScreen(msg.screen);
+  else if (msg.type === "progress") progress(msg.text, msg.p);
+  else if (msg.type === "sessions") {
+    state.sessions = msg.sessions;
+    renderSessions();
+  } else if (msg.type === "banner") {
+    state.banner = msg.text;
+    renderStatus();
+  } else if (msg.type === "alert") alertBox(msg.text);
+  else if (msg.type === "confirmQuit") confirmQuit(msg.screen);
+}
+
+function el(tag, attrs = {}, ...children) {
+  const n = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (k === "class") n.className = v;
+    else if (k.startsWith("on")) n.addEventListener(k.slice(2), v);
+    else n.setAttribute(k, v);
+  }
+  n.append(...children);
+  return n;
+}
+
+function icon(name) {
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("class", "icon");
+  const use = document.createElementNS("http://www.w3.org/2000/svg", "use");
+  use.setAttribute("href", "#i-" + name);
+  svg.append(use);
+  return svg;
+}
+
+let toastTimer;
+function toast(text) {
+  const t = $("#toast");
+  t.querySelector("span").textContent = text;
+  t.classList.add("on");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove("on"), 1600);
+}
+
+function modal(title, text, buttons) {
+  $("#modalTitle").textContent = title;
+  $("#modalText").textContent = text;
+  const close = () => $("#modal").classList.remove("on");
+  $("#modalButtons").replaceChildren(...buttons.map(([label, cls, fn]) =>
+    el("button", { class: "btn " + cls, onclick: () => { close(); fn && fn(); } }, label)));
+  $("#modal").classList.add("on");
+  $("#modalButtons button:last-child").focus();
+}
+
+function alertBox(text) {
+  modal("Colloquia", text, [["Entendido", "primary"]]);
+}
+
+function confirmQuit(screen) {
+  if (screen === "recording") {
+    modal("¿Salir durante la grabación?", "La grabación se detendrá. Podrás procesarla la próxima vez que abras Colloquia.",
+      [["Seguir grabando", ""], ["Detener y salir", "danger", () => pywebview.api.quit()]]);
+  } else {
+    modal("¿Salir mientras se procesa?", "Si sales ahora podrás retomar la sesión la próxima vez que abras Colloquia.",
+      [["Seguir procesando", ""], ["Salir", "danger", () => pywebview.api.quit()]]);
+  }
+}
+
+const busy = () => ["recording", "processing"].includes(state.screen.name);
+
+function go(page) {
+  if (page === "settings" && busy()) return;
+  state.page = page;
+  $$(".page").forEach(p => p.classList.toggle("on", p.id === "page-" + page));
+  $$("nav button").forEach(b => b.classList.toggle("on", b.dataset.page === (page === "transcript" ? state.back : page)));
+  $("main").scrollTop = 0;
+}
+
+function clock(seconds) {
+  const s = Math.floor(seconds);
+  const pad = n => String(n).padStart(2, "0");
+  return `${pad(Math.floor(s / 3600))}:${pad(Math.floor(s % 3600 / 60))}:${pad(s % 60)}`;
+}
+
+function duration(seconds) {
+  const m = Math.round(seconds / 60);
+  if (m < 60) return `${m} min`;
+  return `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, "0")} min`;
+}
+
+function shortPath(p, max = 64) {
+  return p.length <= max ? p : "…" + p.slice(-(max - 1));
+}
+
+const dayKey = d => `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+
+function dayLabel(d) {
+  const today = new Date();
+  const yesterday = new Date();
+  yesterday.setDate(today.getDate() - 1);
+  if (dayKey(d) === dayKey(today)) return "Hoy";
+  if (dayKey(d) === dayKey(yesterday)) return "Ayer";
+  const opts = { weekday: "long", day: "numeric", month: "long" };
+  if (d.getFullYear() !== today.getFullYear()) opts.year = "numeric";
+  return d.toLocaleDateString("es-ES", opts);
+}
+
+function greeting() {
+  const h = new Date().getHours();
+  return h < 6 ? "Buenas noches" : h < 13 ? "Buenos días" : h < 21 ? "Buenas tardes" : "Buenas noches";
+}
+
+function applyTheme() {
+  const a = state.cfg.appearance;
+  if (a === "light" || a === "dark") document.documentElement.dataset.theme = a;
+  else delete document.documentElement.dataset.theme;
+}
+
+function renderStatus() {
+  const name = state.screen.name;
+  let dot = "idle", label = "Listo para grabar", detail = state.cfg.device || state.options.defaultMic || "";
+  if (name === "recording") {
+    dot = state.paused ? "paused" : "recording";
+    label = state.paused ? "En pausa" : "Grabando";
+    detail = $("#timer").textContent;
+  } else if (name === "processing") {
+    dot = "processing";
+    label = "Procesando";
+    detail = STAGES[state.stage] || "Preparando…";
+  } else if (name === "error") {
+    dot = "error";
+    label = "Error al procesar";
+    detail = "La grabación está a salvo";
+  }
+  if (state.banner && name !== "recording") {
+    if (name !== "processing") dot = "loading";
+    if (name === "home" || name === "done") label = "Preparando modelos";
+    detail = state.banner;
+  }
+  $("#dot").className = "dot " + dot;
+  $("#stateLabel").textContent = label;
+  $("#stateDetail").textContent = detail;
+}
+
+function setScreen(screen) {
+  const prev = state.screen.name;
+  state.screen = screen;
+  $$(".view").forEach(v => v.classList.toggle("on", v.id === "view-" + screen.name));
+  $("#navSettings").disabled = busy();
+  if (screen.name !== prev && screen.name !== "home") go("record");
+  if (screen.name === "home") {
+    $("#greeting").textContent = greeting();
+    if (prev !== "home") $("#sessionName").value = "";
+  } else if (screen.name === "recording") {
+    state.paused = false;
+    state.wave = [];
+    $("#recSession").textContent = screen.session || "";
+    $("#timer").textContent = "00:00:00";
+    renderRecording();
+  } else if (screen.name === "processing" && prev !== "processing") {
+    state.stage = -1;
+    renderSteps();
+    $("#procText").textContent = "Preparando…";
+    $("#procElapsed").textContent = "";
+    setBar(null);
+  } else if (screen.name === "done") {
+    renderDone();
+    if (prev === "processing") chime();
+  } else if (screen.name === "error") {
+    $("#errorText").textContent = screen.message || "Error desconocido";
+  }
+  renderStatus();
+}
+
+function buildBars(box, n) {
+  box.replaceChildren(...Array.from({ length: n }, () => el("i")));
+}
+
+function tick(msg) {
+  const name = state.screen.name;
+  if (name === "home") {
+    const lit = Math.round(msg.level * METER_BARS);
+    $$("#homeMeter i").forEach((b, i) => {
+      b.classList.toggle("lit", i < lit && i < METER_BARS - 4);
+      b.classList.toggle("hot", i < lit && i >= METER_BARS - 4);
+    });
+  } else if (name === "recording" && msg.seconds !== undefined) {
+    $("#timer").textContent = clock(msg.seconds);
+    if (msg.paused !== state.paused) {
+      state.paused = msg.paused;
+      renderRecording();
+    }
+    state.wave.push(msg.paused ? 0 : msg.level);
+    if (state.wave.length > WAVE_BARS) state.wave.shift();
+    const bars = $$("#wave i");
+    const offset = WAVE_BARS - state.wave.length;
+    bars.forEach((b, i) => {
+      const v = i >= offset ? state.wave[i - offset] : 0;
+      b.style.height = Math.max(4, v * 72) + "px";
+    });
+    const alertEl = $("#recAlert");
+    alertEl.classList.toggle("err", !!msg.error);
+    alertEl.textContent = msg.error ? `Error al escribir en disco: ${msg.error}` : msg.silent ? "No se detecta audio. Revisa el micrófono." : "";
+    $("#stateDetail").textContent = $("#timer").textContent;
+  } else if (name === "processing" && msg.elapsed !== undefined) {
+    $("#procElapsed").textContent = clock(msg.elapsed);
+  }
+}
+
+function renderRecording() {
+  const p = state.paused;
+  $("#recDot").className = "dot " + (p ? "paused" : "recording");
+  $("#recState").textContent = p ? "En pausa" : "Grabando";
+  $("#wave").classList.toggle("paused", p);
+  const glyph = icon(p ? "play" : "pause");
+  if (p) glyph.classList.add("solid");
+  $("#pauseBtn").replaceChildren(glyph, p ? "Reanudar" : "Pausar");
+  renderStatus();
+}
+
+function renderSteps() {
+  $("#steps").replaceChildren(...STAGES.map((name, i) => {
+    const cls = i < state.stage ? "done" : i === state.stage ? "active" : "";
+    return el("div", { class: "setting step " + cls }, el("span", { class: "step-icon" }, icon("check")), el("span", { class: "step-name" }, name));
+  }));
+}
+
+function setBar(p) {
+  const bar = $("#progress");
+  bar.classList.toggle("indeterminate", p === null || p === undefined);
+  bar.querySelector("i").style.width = p === null || p === undefined ? "" : Math.round(p * 100) + "%";
+}
+
+function progress(text, p) {
+  $("#procText").textContent = text;
+  const current = STAGES.findIndex(name => text.startsWith(name));
+  if (current >= 0 && current !== state.stage) {
+    state.stage = current;
+    renderSteps();
+    renderStatus();
+  }
+  setBar(p);
+}
+
+function renderDone() {
+  const s = state.screen;
+  $("#doneInfo").textContent = `${s.session} · ${clock(s.duration || 0)} · ${s.turns} intervenciones`;
+  const colors = ["var(--voice1)", "var(--voice2)"];
+  $("#voices").replaceChildren(...(s.voices || []).map((v, i) => el("div", { class: "voice" },
+    el("span", { class: "bar", style: `background:${colors[i]}` }),
+    el("div", {}, el("b", {}, v.role), v.quote ? el("p", {}, `«${v.quote}»`) : el("p", { class: "none" }, "No se ha detectado otra voz")))));
+  const roles = (s.voices || []).map(v => v.role.toLowerCase());
+  $("#swapLabel").textContent = roles.length === 2 ? `Intercambiar ${roles[0]} y ${roles[1]}` : "Intercambiar voces";
+}
+
+function chime() {
+  try {
+    const ctx = new AudioContext();
+    [[660, 0], [880, .14]].forEach(([f, t]) => {
+      const o = ctx.createOscillator();
+      const g = ctx.createGain();
+      o.frequency.value = f;
+      g.gain.setValueAtTime(0, ctx.currentTime + t);
+      g.gain.linearRampToValueAtTime(.18, ctx.currentTime + t + .02);
+      g.gain.exponentialRampToValueAtTime(.001, ctx.currentTime + t + .5);
+      o.connect(g).connect(ctx.destination);
+      o.start(ctx.currentTime + t);
+      o.stop(ctx.currentTime + t + .55);
+    });
+  } catch (e) {}
+}
+
+async function showTranscript(path) {
+  const t = await pywebview.api.transcript(path);
+  if (!t) return alertBox("No se encuentra la transcripción de esta sesión.");
+  state.transcript = t;
+  if (state.page !== "transcript") state.back = state.page;
+  $("#trBack span").textContent = state.back === "sessions" ? "Sesiones" : "Volver";
+  $("#trTitle").textContent = t.name || "Sin nombre";
+  const d = t.started ? new Date(t.started) : null;
+  const info = [];
+  if (d) info.push(d.toLocaleDateString("es-ES", { day: "numeric", month: "long", year: "numeric" }) + ", " + d.toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" }));
+  info.push(clock(t.duration), `${t.entries.filter(e => e.role !== null).length} intervenciones`);
+  $("#trInfo").textContent = info.join(" · ");
+  const colors = ["var(--voice1)", "var(--voice2)"];
+  $("#trBody").replaceChildren(...t.entries.map(e => e.role === null
+    ? el("div", { class: "turn silence" }, el("time", {}, clock(e.start)), el("p", {}, e.text))
+    : el("div", { class: "turn", style: `--c:${colors[e.role]}` }, el("time", {}, clock(e.start)), el("b", {}, t.roles[e.role]), el("p", {}, ...richText(e.text)))));
+  if (!t.entries.length) $("#trBody").append(el("div", { class: "empty" }, "No se ha detectado habla en esta grabación."));
+  go("transcript");
+}
+
+function richText(text) {
+  return text.split(/(\(pausa [^)]*\)|\S+?\[\?\])/).filter(Boolean).map(part => {
+    if (part.startsWith("(pausa ")) return el("span", { class: "pause" }, part);
+    if (part.endsWith("[?]")) return el("span", { class: "doubt", title: "Reconocida con poca seguridad" }, part.slice(0, -3));
+    return part;
+  });
+}
+
+function copyText(text) {
+  const area = el("textarea");
+  area.value = text;
+  area.style.position = "fixed";
+  area.style.opacity = "0";
+  document.body.append(area);
+  area.select();
+  document.execCommand("copy");
+  area.remove();
+}
+
+function sessionRow(s) {
+  const d = s.started ? new Date(s.started) : null;
+  const meta = [];
+  if (s.duration) meta.push(clock(s.duration));
+  if (s.state === "done") meta.push(`${s.turns} intervenciones`);
+  if (!s.name) meta.push(s.folder);
+  const actions = el("div", { class: "actions" });
+  if (s.active) actions.append(el("span", { class: "pill live" }, state.screen.name === "recording" ? "Grabando" : "Procesando"));
+  else if (s.pending) {
+    actions.append(el("span", { class: "pill warn" }, "Sin procesar"));
+    const b = el("button", { class: "btn sm", onclick: () => pywebview.api.recover(s.path) }, "Procesar");
+    b.disabled = busy();
+    actions.append(b);
+  } else if (s.state !== "done") actions.append(el("span", { class: "pill" }, "Incompleta"));
+  if (s.state === "done") actions.append(el("button", { class: "ghost", title: "Ver transcripción", onclick: () => showTranscript(s.path) }, icon("file")));
+  actions.append(el("button", { class: "ghost", title: "Abrir carpeta", onclick: () => pywebview.api.open(s.path) }, icon("folder")));
+  actions.addEventListener("click", e => e.stopPropagation());
+  const done = s.state === "done" && !s.active;
+  return el("div", { class: done ? "row clickable" : "row", onclick: () => done && showTranscript(s.path) },
+    el("time", {}, d ? d.toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" }) : ""),
+    el("div", { class: "main" }, el("b", { class: s.name ? "" : "untitled" }, s.name || "Sin nombre"), el("small", {}, meta.join(" · "))),
+    actions);
+}
+
+function groupedList(items) {
+  const box = document.createDocumentFragment();
+  let list, current;
+  for (const s of items) {
+    const d = s.started ? new Date(s.started) : new Date(0);
+    if (dayKey(d) !== current) {
+      current = dayKey(d);
+      list = el("div", { class: "list" });
+      box.append(el("div", { class: "group" }, el("div", { class: "group-title" }, s.started ? dayLabel(d) : "Sin fecha"), list));
+    }
+    list.append(sessionRow(s));
+  }
+  return box;
+}
+
+function sortedSessions() {
+  return [...state.sessions].sort((a, b) => (b.started || "").localeCompare(a.started || ""));
+}
+
+function renderSessions() {
+  const all = sortedSessions();
+  const done = all.filter(s => s.state === "done");
+  const pending = all.filter(s => s.pending);
+
+  $("#statSessions").textContent = done.length;
+  $("#statSessionsLabel").textContent = done.length === 1 ? "sesión" : "sesiones";
+  const secs = done.reduce((t, s) => t + (s.duration || 0), 0);
+  if (secs < 3600) {
+    $("#statTime").textContent = Math.round(secs / 60);
+    $("#statTimeLabel").textContent = "minutos grabados";
+  } else {
+    $("#statTime").textContent = new Intl.NumberFormat("es-ES", { maximumFractionDigits: 1 }).format(secs / 3600);
+    $("#statTimeLabel").textContent = "horas grabadas";
+  }
+  const weekAgo = Date.now() - 7 * 864e5;
+  $("#statWeek").textContent = done.filter(s => s.started && new Date(s.started).getTime() > weekAgo).length;
+
+  const badge = $("#pendingBadge");
+  badge.hidden = !pending.length;
+  badge.textContent = pending.length;
+  $("#recoverBox").hidden = !pending.length;
+  if (pending.length) {
+    const p = pending[pending.length - 1];
+    const more = pending.length > 1 ? ` (y ${pending.length - 1} más)` : "";
+    $("#recoverText").textContent = (p.name || p.folder) + more;
+  }
+
+  const recent = $("#recentBox");
+  recent.replaceChildren();
+  if (all.length) {
+    const head = el("div", { class: "section-head" }, el("div", { class: "group-title" }, "Recientes"));
+    if (all.length > 4) head.append(el("button", { class: "link", onclick: () => go("sessions") }, "Ver todas"));
+    recent.append(head, el("div", { class: "list" }, ...all.slice(0, 4).map(sessionRow)));
+  }
+
+  const folder = state.cfg.folder || "";
+  $("#sessionsLead").replaceChildren("Se guardan en ", el("b", {}, shortPath(folder, 70)), ". Cada sesión tiene su carpeta con el MP3 y la transcripción.");
+  const box = $("#sessionsList");
+  box.replaceChildren();
+  if (!all.length) {
+    box.append(el("div", { class: "empty" }, el("b", {}, "Aún no hay sesiones"), "Graba tu primera sesión y aparecerá aquí."));
+  } else box.append(groupedList(all));
+}
+
+function fillSelect(key, pairs, value) {
+  const sel = $(`select[data-key="${key}"]`);
+  sel.replaceChildren(...pairs.map(([label, v]) => el("option", { value: String(v) }, label)));
+  sel.value = String(value);
+}
+
+function renderSettings() {
+  const { cfg, options } = state;
+  const mics = [[options.defaultMic, ""], ...options.mics.map(m => [m, m])];
+  if (cfg.device && !options.mics.includes(cfg.device)) mics.push([cfg.device, cfg.device]);
+  fillSelect("device", mics, cfg.device);
+  fillSelect("model", options.models, cfg.model);
+  fillSelect("language", options.languages, cfg.language);
+  fillSelect("pause_min", options.pauses, cfg.pause_min);
+  fillSelect("appearance", options.appearance, cfg.appearance || "system");
+  for (const input of $$('input[type="checkbox"][data-key]')) input.checked = !!cfg[input.dataset.key];
+  for (const input of $$("input[data-role]")) input.value = cfg.roles[input.dataset.role];
+  $("#settingsFolder").textContent = shortPath(cfg.folder);
+  $("#homeFolder").textContent = shortPath(cfg.folder);
+  $("#homeMic").textContent = cfg.device || options.defaultMic;
+}
+
+async function apply(changes) {
+  Object.assign(state.cfg, changes);
+  state.cfg = await pywebview.api.apply(changes);
+  applyTheme();
+  renderSettings();
+  renderStatus();
+  toast("Guardado");
+}
+
+$$("nav button").forEach(b => b.addEventListener("click", () => go(b.dataset.page)));
+
+$("#recForm").addEventListener("submit", e => {
+  e.preventDefault();
+  pywebview.api.start($("#sessionName").value);
+});
+
+$("#pauseBtn").addEventListener("click", async () => {
+  state.paused = await pywebview.api.pause();
+  renderRecording();
+});
+
+$("#stopBtn").addEventListener("click", () => {
+  modal("¿Terminar la grabación?", "Se detendrá la grabación y empezará a procesarse la sesión.",
+    [["Seguir grabando", ""], ["Terminar y procesar", "danger", () => pywebview.api.stop()]]);
+});
+
+$("#recoverBtn").addEventListener("click", () => pywebview.api.recover(null));
+$("#swapBtn").addEventListener("click", () => {
+  pywebview.api.swap();
+  toast("Voces intercambiadas");
+});
+$("#retryBtn").addEventListener("click", () => pywebview.api.retry());
+$("#trBack").addEventListener("click", () => go(state.back));
+$("#trOpen").addEventListener("click", () => pywebview.api.open(state.transcript.path));
+$("#trCopy").addEventListener("click", () => {
+  copyText(state.transcript.text);
+  toast("Transcripción copiada");
+});
+
+const actions = {
+  reset: () => pywebview.api.reset(),
+  openSession: () => pywebview.api.open(null),
+  viewSession: () => showTranscript(null),
+  openRoot: () => pywebview.api.open(state.cfg.folder),
+  chooseFolder: async () => {
+    const folder = await pywebview.api.choose_folder();
+    if (!folder) return;
+    state.cfg.folder = folder;
+    renderSettings();
+    toast("Carpeta cambiada");
+  },
+};
+$$("[data-action]").forEach(b => b.addEventListener("click", () => actions[b.dataset.action]()));
+
+$$("select[data-key]").forEach(sel => sel.addEventListener("change", () => {
+  const key = sel.dataset.key;
+  apply({ [key]: key === "pause_min" ? Number(sel.value) : sel.value });
+}));
+
+$$('input[type="checkbox"][data-key]').forEach(input => input.addEventListener("change", () => apply({ [input.dataset.key]: input.checked })));
+
+$$("input[data-role]").forEach(input => {
+  input.addEventListener("change", () => {
+    const roles = [...state.cfg.roles];
+    roles[input.dataset.role] = input.value.trim();
+    apply({ roles });
+  });
+  input.addEventListener("keydown", e => e.key === "Enter" && input.blur());
+});
+
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape" && $("#modal").classList.contains("on")) $("#modalButtons button").click();
+});
+
+window.addEventListener("pywebviewready", async () => {
+  const init = await pywebview.api.init();
+  Object.assign(state, { cfg: init.cfg, options: init.options, banner: init.banner, sessions: init.sessions });
+  buildBars($("#wave"), WAVE_BARS);
+  buildBars($("#homeMeter"), METER_BARS);
+  applyTheme();
+  renderSettings();
+  renderSessions();
+  setScreen(init.screen);
+  go("record");
+  colloquia.ready = true;
+  colloquia.queue.splice(0).forEach(handle);
+  init.alerts.forEach(alertBox);
+});
+
+setInterval(() => $("#greeting").textContent = greeting(), 60000);
+</script>
+</body>
+</html>

@@ -284,6 +284,19 @@ def samples(meta):
     return found
 
 
+def entries(meta, cfg):
+    pause_min, doubtful = cfg.get("pause_min", 1.5), cfg.get("mark_doubtful", True)
+    silences = silences_before_words(meta)
+    out = []
+    for ti, t in enumerate(meta["turns"]):
+        for start, d in silences.get((ti, 0), []):
+            if d >= pause_min:
+                out.append({"start": start, "role": None, "text": f"(silencio {secs(d)})"})
+        pauses = {wi: v for (i, wi), v in silences.items() if i == ti}
+        out.append({"start": t["start"], "role": role_of(meta, t["speaker"]), "text": render(t, pauses, pause_min, doubtful)})
+    return out
+
+
 def write_txt(session_dir, cfg):
     meta = read_meta(session_dir)
     roles, pause_min, doubtful = cfg["roles"], cfg.get("pause_min", 1.5), cfg.get("mark_doubtful", True)
@@ -302,14 +315,9 @@ def write_txt(session_dir, cfg):
     if doubtful:
         lines.append("  palabra[?]             reconocida con poca seguridad: conviene escucharla en el MP3")
     lines += ["  Las duraciones son aproximadas (±0,5 s).", "", ""]
-    silences = silences_before_words(meta)
-    for ti, t in enumerate(meta["turns"]):
-        for start, d in silences.get((ti, 0), []):
-            if d >= pause_min:
-                lines += [f"[{hms(start)}] (silencio {secs(d)})", ""]
-        pauses = {wi: v for (i, wi), v in silences.items() if i == ti}
-        lines.append(f"[{hms(t['start'])}] {roles[role_of(meta, t['speaker'])]}: {render(t, pauses, pause_min, doubtful)}")
-        lines.append("")
+    for e in entries(meta, cfg):
+        who = "" if e["role"] is None else f"{roles[e['role']]}: "
+        lines += [f"[{hms(e['start'])}] {who}{e['text']}", ""]
     with open(os.path.join(session_dir, TXT), "w", encoding="utf-8") as f:
         f.write("\n".join(lines))
 
