@@ -39,9 +39,7 @@ Descarga el instalador de tu sistema desde la página de *Releases* del reposito
 
 ### Windows
 
-Hay dos instaladores:
-- `Colloquia-…-windows-cuda-setup.exe`: para equipos con GPU NVIDIA. Pesa más porque incluye CUDA, pero transcribe mucho más rápido.
-- `Colloquia-…-windows-cpu-setup.exe`: para el resto de equipos.
+Descarga `Colloquia-Windows-Setup.exe`. Sirve para cualquier equipo: si hay una GPU NVIDIA la usa para transcribir mucho más rápido y, si no, funciona con la CPU.
 
 El instalador:
 - no pide permisos de administrador; instala en `%LOCALAPPDATA%\Programs\Colloquia`;
@@ -144,7 +142,7 @@ pyinstaller --noconfirm packaging/colloquia.spec
 - El resultado queda en `dist/`: `Colloquia/` en Windows y Linux, `Colloquia.app` en macOS.
 - En Windows, con la variable `COLLOQUIA_CUDA=1` se incluyen las DLL de CUDA (cuBLAS y cuDNN) de los paquetes `nvidia-*`. Sin ella, la aplicación usa solo la CPU.
 - El instalador de Windows se crea con Inno Setup: `iscc packaging\colloquia.iss`.
-- El flujo `.github/workflows/build.yml` compila Windows (CPU y CUDA), macOS y Linux. Se ejecuta a mano o al subir una etiqueta `v*`; en ese caso crea un borrador de *release* con los instaladores.
+- El flujo `.github/workflows/build.yml` compila Windows (con CUDA), macOS y Linux. Se ejecuta a mano o al subir una etiqueta `v*`; en ese caso crea un borrador de *release* con los instaladores.
 
 ## Configuración
 

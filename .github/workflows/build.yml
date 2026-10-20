@@ -11,10 +11,6 @@ env:
 jobs:
   windows:
     runs-on: windows-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        variant: [cpu, cuda]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -24,23 +20,20 @@ jobs:
         shell: bash
         run: echo "COLLOQUIA_VERSION=$([[ $GITHUB_REF == refs/tags/v* ]] && echo ${GITHUB_REF_NAME#v} || echo 0.0.$GITHUB_RUN_NUMBER)" >> $GITHUB_ENV
       - name: Dependencias
-        shell: bash
-        run: |
-          if [ "${{ matrix.variant }}" = cpu ]; then grep -vi nvidia requirements.txt > req.txt; else cp requirements.txt req.txt; fi
-          python -m pip install -r req.txt pyinstaller pillow
+        run: python -m pip install -r requirements.txt pyinstaller pillow
       - name: PyInstaller
         env:
-          COLLOQUIA_CUDA: ${{ matrix.variant == 'cuda' && '1' || '0' }}
+          COLLOQUIA_CUDA: "1"
         run: pyinstaller --noconfirm packaging/colloquia.spec
       - name: Prueba de arranque
         run: dist\Colloquia\colloquia-cli.exe --help
       - name: Instalador
         run: |
           choco install innosetup -y --no-progress
-          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" "/DAppVersion=$env:COLLOQUIA_VERSION" "/DOutputName=Colloquia-$env:COLLOQUIA_VERSION-windows-${{ matrix.variant }}-setup" packaging\colloquia.iss
+          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" "/DAppVersion=$env:COLLOQUIA_VERSION" "/DOutputName=Colloquia-$env:COLLOQUIA_VERSION-windows-setup" packaging\colloquia.iss
       - uses: actions/upload-artifact@v4
         with:
-          name: colloquia-windows-${{ matrix.variant }}
+          name: colloquia-windows
           path: dist/*-setup.exe
           compression-level: 0
 
@@ -122,6 +115,8 @@ jobs:
         with:
           path: artifacts
           merge-multiple: true
+      - name: Instalador Windows con nombre fijo
+        run: cp artifacts/*-windows-setup.exe artifacts/Colloquia-Windows-Setup.exe
       - uses: softprops/action-gh-release@v2
         with:
           files: artifacts/*
