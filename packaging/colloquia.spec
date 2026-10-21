@@ -7,6 +7,7 @@ ROOT = os.path.dirname(SPECPATH)
 VERSION = os.environ.get("COLLOQUIA_VERSION", "1.0.0")
 ICON = os.path.join(SPECPATH, "colloquia.png")
 ICO = os.path.join(SPECPATH, "colloquia.ico")
+ICNS = os.path.join(SPECPATH, "colloquia.icns")
 
 binaries = collect_dynamic_libs("ctranslate2") + collect_dynamic_libs("sherpa_onnx")
 if os.environ.get("WHISPER_CLI"):
@@ -31,7 +32,7 @@ def exe(name, console):
         exclude_binaries=True,
         name=name,
         console=console,
-        icon=ICO if sys.platform == "win32" else ICON,
+        icon=ICO if sys.platform == "win32" else ICNS if sys.platform == "darwin" else ICON,
         upx=False,
         argv_emulation=False,
     )
@@ -47,7 +48,7 @@ if sys.platform == "darwin":
     app = BUNDLE(
         coll,
         name="Colloquia.app",
-        icon=ICON,
+        icon=ICNS,
         bundle_identifier="io.github.arocafull00.colloquia",
         version=VERSION,
         info_plist={

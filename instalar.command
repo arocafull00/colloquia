@@ -59,10 +59,13 @@ cat > "$APP/Contents/Info.plist" <<EOF
     <key>CFBundleIdentifier</key><string>io.github.arocafull00.colloquia</string>
     <key>CFBundleExecutable</key><string>Colloquia</string>
     <key>CFBundlePackageType</key><string>APPL</string>
+    <key>CFBundleIconFile</key><string>colloquia.icns</string>
     <key>NSMicrophoneUsageDescription</key><string>Colloquia usa el micrófono para grabar las sesiones.</string>
 </dict>
 </plist>
 EOF
+cp packaging/colloquia.icns "$APP/Contents/Resources/" || fail
+touch "$APP"
 LOG="$HOME/Library/Application Support/Colloquia/colloquia.log"
 mkdir -p "$(dirname "$LOG")"
 cat > "$APP/Contents/MacOS/Colloquia" <<EOF

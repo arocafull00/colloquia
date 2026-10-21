@@ -57,7 +57,7 @@ Name=Colloquia
 Comment=Grabación y transcripción local de sesiones
 Exec="$HERE/.venv/bin/python" "$HERE/colloquia.py"
 Path=$HERE
-Icon=audio-input-microphone
+Icon=$HERE/packaging/colloquia.png
 Terminal=false
 Categories=AudioVideo;Audio;Recorder;
 EOF

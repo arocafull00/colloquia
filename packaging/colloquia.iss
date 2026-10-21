@@ -19,6 +19,7 @@ ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 AppMutex=ColloquiaSingleInstance
 UninstallDisplayIcon={app}\Colloquia.exe
+SetupIconFile=colloquia.ico
 OutputDir=..\dist
 OutputBaseFilename={#OutputName}
 Compression=lzma2

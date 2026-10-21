@@ -44,7 +44,7 @@ if %errorlevel%==0 (
 )
 
 echo   [3/3] Creando accesos directos...
-powershell -NoProfile -Command "$s = New-Object -ComObject WScript.Shell; foreach ($p in @([Environment]::GetFolderPath('Programs'), [Environment]::GetFolderPath('Desktop'))) { $l = $s.CreateShortcut((Join-Path $p 'Colloquia.lnk')); $l.TargetPath = (Resolve-Path '.venv\Scripts\pythonw.exe').Path; $l.Arguments = '\"' + (Resolve-Path 'colloquia.py').Path + '\"'; $l.WorkingDirectory = (Get-Location).Path; $l.Description = 'Grabación y transcripción local de sesiones'; $l.Save() }"
+powershell -NoProfile -Command "$s = New-Object -ComObject WScript.Shell; foreach ($p in @([Environment]::GetFolderPath('Programs'), [Environment]::GetFolderPath('Desktop'))) { $l = $s.CreateShortcut((Join-Path $p 'Colloquia.lnk')); $l.TargetPath = (Resolve-Path '.venv\Scripts\pythonw.exe').Path; $l.Arguments = '\"' + (Resolve-Path 'colloquia.py').Path + '\"'; $l.WorkingDirectory = (Get-Location).Path; $l.IconLocation = (Resolve-Path 'packaging\colloquia.ico').Path;$l.Description = 'Grabación y transcripción local de sesiones'; $l.Save() }"
 
 echo.
 echo   La primera vez Colloquia descarga los modelos (~1,7 GB con el modelo Turbo).

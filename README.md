@@ -1,4 +1,9 @@
-# Colloquia
+<h1>
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="packaging/logo-blanco.svg">
+    <img src="packaging/logo-color.svg" alt="Colloquia" width="300">
+  </picture>
+</h1>
 
 Grabación y transcripción **local** de sesiones largas (una hora o más) entre psicólogo y paciente.
 
