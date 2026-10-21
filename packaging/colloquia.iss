@@ -61,9 +61,18 @@ begin
   Result := FileExists(ExpandConstant('{sys}\nvcuda.dll'));
 end;
 
+function HasCuda: Boolean;
+var
+  F: TFindRec;
+begin
+  Result := FindFirst(ExpandConstant('{localappdata}\Colloquia\cuda\nvidia\cudnn\bin\cudnn64_*.dll'), F);
+  if Result then
+    FindClose(F);
+end;
+
 function WantsGpu: Boolean;
 begin
-  Result := HasNvidia and GpuPage.Values[0];
+  Result := HasNvidia and (HasCuda or GpuPage.Values[0]);
 end;
 
 function GpuSupport(Param: String): String;
@@ -91,7 +100,7 @@ end;
 
 function ShouldSkipPage(PageID: Integer): Boolean;
 begin
-  Result := (PageID = GpuPage.ID) and not HasNvidia;
+  Result := (PageID = GpuPage.ID) and (not HasNvidia or HasCuda);
 end;
 
 procedure RegisterPreviousData(PreviousDataKey: Integer);
