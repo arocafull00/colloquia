@@ -148,8 +148,10 @@ jobs:
         with:
           path: artifacts
           merge-multiple: true
-      - name: Instalador Windows con nombre fijo
-        run: cp artifacts/*-windows-setup.exe artifacts/Colloquia-Windows-Setup.exe
+      - name: Instaladores con nombre fijo
+        run: |
+          cp artifacts/*-windows-setup.exe artifacts/Colloquia-Windows-Setup.exe
+          cp artifacts/*-linux-x86_64.AppImage artifacts/Colloquia-Linux.AppImage
       - uses: softprops/action-gh-release@v2
         with:
           files: artifacts/*
