@@ -2,11 +2,29 @@ import ctypes
 import os
 import shutil
 import subprocess
+import sys
 
 from config import MAC, WIN
 
 ES_CONTINUOUS = 0x80000000
 ES_SYSTEM_REQUIRED = 0x00000001
+
+
+def prepare_webview():
+    if not sys.platform.startswith("linux"):
+        return
+    if not getattr(sys, "frozen", False):
+        # The native installer uses GTK/WebKit and PyGObject from the distro.
+        os.environ.setdefault("PYWEBVIEW_GUI", "gtk")
+        return
+    # Use the bundled Qt backend and avoid mixing bundled Mesa/GLib with
+    # graphics drivers and GVfs modules from a newer Linux distribution.
+    os.environ.setdefault("PYWEBVIEW_GUI", "qt")
+    os.environ.setdefault("QT_XCB_GL_INTEGRATION", "none")
+    flags = os.environ.get("QTWEBENGINE_CHROMIUM_FLAGS", "")
+    if "--disable-gpu" not in flags.split():
+        os.environ["QTWEBENGINE_CHROMIUM_FLAGS"] = (flags + " --disable-gpu").strip()
+    os.environ.setdefault("GIO_USE_VFS", "local")
 
 
 class KeepAwake:

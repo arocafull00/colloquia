@@ -101,7 +101,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y libportaudio2 libxcb-cursor0 libvulkan-dev
-          python -m pip install -r requirements.txt pyinstaller pillow
+          python -m pip install -r requirements.txt 'pywebview[qt]' pyinstaller pillow
       - name: whisper.cpp (Vulkan)
         run: |
           curl -sSL "https://sdk.lunarg.com/sdk/download/$VULKAN_VERSION/linux/vulkansdk-linux-x86_64-$VULKAN_VERSION.tar.xz" | tar -xJ -C "$RUNNER_TEMP"
@@ -119,6 +119,10 @@ jobs:
           dist/Colloquia/Colloquia --help
       - name: Tarball
         run: tar -C dist -czf "dist/Colloquia-$COLLOQUIA_VERSION-linux-x86_64.tar.gz" Colloquia
+      - name: Instalador nativo de Linux (código fuente)
+        run: |
+          tar --transform='s,^,Colloquia/,' -czf dist/Colloquia-Linux-Source.tar.gz \
+            *.py ui.html requirements.txt instalar.sh README.md packaging/check_linux.py packaging/colloquia.png
       - name: AppImage
         run: |
           mkdir AppDir

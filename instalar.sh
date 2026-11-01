@@ -1,71 +1,115 @@
-#!/bin/bash
-cd "$(dirname "$0")" || exit 1
-HERE="$(pwd)"
+#!/usr/bin/env bash
+set -euo pipefail
+cd -- "$(dirname -- "${BASH_SOURCE[0]}")"
+HERE="$(pwd -P)"
+LAUNCH=1
+SYSTEM_DEPS=1
 
-echo
-echo "  Colloquia · instalación"
-echo "  ───────────────────────"
-echo
-
-fail() {
-    echo
-    echo "  Algo ha fallado durante la instalación. Revisa los mensajes de arriba."
-    exit 1
-}
-
-PY=""
-for c in python3.14 python3.13 python3.12 python3.11 python3.10 python3; do
-    if command -v "$c" >/dev/null 2>&1 && "$c" -c 'import sys, venv; sys.exit(sys.version_info < (3, 10))' >/dev/null 2>&1; then
-        PY="$c"
-        break
-    fi
+for arg in "$@"; do
+    case "$arg" in
+        --no-launch) LAUNCH=0 ;;
+        --skip-system-deps) SYSTEM_DEPS=0 ;;
+        --help|-h)
+            echo "Uso: bash instalar.sh [--no-launch] [--skip-system-deps]"
+            echo "Instala Colloquia para tu usuario y crea el acceso en el menú."
+            echo "Solo las dependencias del sistema requieren sudo."
+            exit 0 ;;
+        *) echo "Opción desconocida: $arg" >&2; exit 1 ;;
+    esac
 done
-if [ -z "$PY" ]; then
-    echo "  No se ha encontrado Python 3.10 o superior con venv."
-    echo "  En Debian/Ubuntu:  sudo apt install python3 python3-venv libportaudio2 libxcb-cursor0"
-    echo "  En Fedora:         sudo dnf install python3 portaudio xcb-util-cursor"
-    echo "  En Arch:           sudo pacman -S python portaudio xcb-util-cursor"
-    exit 1
+
+fail() { echo "  $*" >&2; exit 1; }
+trap 'echo "  La instalación no se ha completado. Revisa el error anterior." >&2' ERR
+[[ "$(uname -s)" == Linux ]] || fail "Este instalador es para Linux."
+[[ "$EUID" -ne 0 ]] || fail "Ejecuta bash instalar.sh sin sudo; se pedirá solo para las dependencias del sistema."
+
+echo "  Colloquia · instalación nativa para Linux"
+echo "  [1/4] Dependencias del sistema (GTK, WebKit y PortAudio)..."
+if [[ "$SYSTEM_DEPS" == 1 ]]; then
+    command -v sudo >/dev/null || fail "Falta sudo. Pide al administrador que instale las dependencias indicadas en README.md y usa --skip-system-deps."
+    if command -v apt-get >/dev/null; then
+        sudo apt-get update
+        sudo apt-get install -y python3 python3-venv python3-gi python3-gi-cairo \
+            gir1.2-gtk-3.0 gir1.2-webkit2-4.1 libportaudio2 xdg-utils
+    elif command -v dnf >/dev/null; then
+        sudo dnf install -y python3 python3-pip python3-gobject gtk3 webkit2gtk4.1 portaudio xdg-utils
+    elif command -v pacman >/dev/null; then
+        sudo pacman -S --needed --noconfirm python python-pip python-gobject gtk3 webkit2gtk-4.1 portaudio xdg-utils
+    else
+        fail "Gestor de paquetes no reconocido. Instala las dependencias de README.md y usa --skip-system-deps."
+    fi
 fi
 
-if [ ! -x ".venv/bin/python" ]; then
-    echo "  [1/3] Creando el entorno de Python..."
-    "$PY" -m venv .venv || fail
+# PyGObject must use the distribution's Python ABI, not a custom Python in PATH.
+PY=/usr/bin/python3
+[[ -x "$PY" ]] || fail "No se encuentra /usr/bin/python3."
+"$PY" -c 'import sys, venv; assert sys.version_info >= (3, 10), "Se necesita Python 3.10 o superior"'
+"$PY" -c 'import gi; gi.require_version("Gtk", "3.0"); gi.require_version("WebKit2", "4.1"); from gi.repository import Gtk, WebKit2' || \
+    fail "Faltan GTK/WebKit o PyGObject para el Python del sistema. Revisa las dependencias de tu distribución."
+
+echo "  [2/4] Entorno de Python y dependencias de Colloquia..."
+if [[ -x .venv/bin/python ]] && [[ "$(.venv/bin/python -c 'import sys; print(sys.version_info[:2])')" != "$("$PY" -c 'import sys; print(sys.version_info[:2])')" ]]; then
+    fail "El entorno .venv usa otra versión de Python. Renómbralo y vuelve a ejecutar el instalador."
+fi
+"$PY" -m venv --system-site-packages .venv
+.venv/bin/python -m pip install --upgrade pip --disable-pip-version-check
+.venv/bin/python -m pip install -r requirements.txt --disable-pip-version-check
+
+echo "  [3/4] Comprobando audio, transcripción e interfaz..."
+.venv/bin/python packaging/check_linux.py
+if [[ -n "${DISPLAY:-}${WAYLAND_DISPLAY:-}" ]]; then
+    .venv/bin/python packaging/check_linux.py --gui
 else
-    echo "  [1/3] Entorno de Python ya creado."
+    echo "  No hay sesión gráfica: queda pendiente comprobar la ventana desde el escritorio."
 fi
 
-echo "  [2/3] Instalando dependencias. Puede tardar unos minutos..."
-.venv/bin/python -m pip install --upgrade pip --quiet --disable-pip-version-check
-.venv/bin/python -m pip install -r requirements.txt --disable-pip-version-check || fail
-if ! .venv/bin/python -c "import sounddevice" >/dev/null 2>&1; then
-    echo
-    echo "  Falta la biblioteca de audio PortAudio. Instálala y vuelve a ejecutar este script:"
-    echo "  En Debian/Ubuntu:  sudo apt install libportaudio2"
-    echo "  En Fedora:         sudo dnf install portaudio"
-    echo "  En Arch:           sudo pacman -S portaudio"
-    exit 1
+echo "  [4/4] Creando el comando y el acceso en el menú..."
+BIN_DIR="$HOME/.local/bin"
+DATA_DIR="${XDG_DATA_HOME:-$HOME/.local/share}"
+.venv/bin/python - "$HERE" "$BIN_DIR" "$DATA_DIR" <<'PY'
+from pathlib import Path
+import shlex
+import sys
+
+root, bin_dir, data_dir = map(Path, sys.argv[1:])
+launcher = bin_dir / "colloquia"
+bin_dir.mkdir(parents=True, exist_ok=True)
+launcher.write_text(
+    "#!/bin/sh\n"
+    "export PYWEBVIEW_GUI=gtk\n"
+    f"cd -- {shlex.quote(str(root))} || exit 1\n"
+    f"exec {shlex.quote(str(root / '.venv/bin/python'))} {shlex.quote(str(root / 'colloquia.py'))} \"$@\"\n",
+    encoding="utf-8",
+)
+launcher.chmod(0o755)
+
+def desktop_exec(path):
+    value = str(path)
+    for char in ('\\', '"', '`', '$'):
+        value = value.replace(char, '\\' + char)
+    return '"' + value.replace('\\', '\\\\').replace('%', '%%') + '"'
+
+desktop = data_dir / "applications/colloquia.desktop"
+desktop.parent.mkdir(parents=True, exist_ok=True)
+icon = str(root / "packaging/colloquia.png").replace('\\', '\\\\')
+desktop.write_text(
+    "[Desktop Entry]\nType=Application\nName=Colloquia\n"
+    "Comment=Grabación y transcripción local de sesiones\n"
+    f"Exec={desktop_exec(launcher)}\nIcon={icon}\n"
+    "Terminal=false\nCategories=AudioVideo;Audio;Recorder;\n",
+    encoding="utf-8",
+)
+PY
+if command -v update-desktop-database >/dev/null; then
+    update-desktop-database "$DATA_DIR/applications" || true
 fi
 
-echo "  [3/3] Creando el acceso en el menú de aplicaciones..."
-DESKTOP="${XDG_DATA_HOME:-$HOME/.local/share}/applications/colloquia.desktop"
-mkdir -p "$(dirname "$DESKTOP")"
-cat > "$DESKTOP" <<EOF
-[Desktop Entry]
-Type=Application
-Name=Colloquia
-Comment=Grabación y transcripción local de sesiones
-Exec="$HERE/.venv/bin/python" "$HERE/colloquia.py"
-Path=$HERE
-Icon=$HERE/packaging/colloquia.png
-Terminal=false
-Categories=AudioVideo;Audio;Recorder;
-EOF
-
-echo
-echo "  La primera vez Colloquia descarga los modelos (~1,7 GB con el modelo Turbo)."
-echo "  Después funciona sin conexión a internet."
-echo
-echo "  Listo. Abre Colloquia desde el menú de aplicaciones o con:"
-echo "  $HERE/.venv/bin/python $HERE/colloquia.py"
-nohup .venv/bin/python colloquia.py >/dev/null 2>&1 &
+echo "  Listo. Abre Colloquia desde el menú de aplicaciones o ejecuta:"
+printf '  %q\n' "$BIN_DIR/colloquia"
+echo "  No muevas esta carpeta: contiene la aplicación y su entorno."
+echo "  La primera vez se descargan los modelos (~1,7 GB con Turbo)."
+if [[ "$LAUNCH" == 1 && -n "${DISPLAY:-}${WAYLAND_DISPLAY:-}" ]]; then
+    LOG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/colloquia"
+    mkdir -p "$LOG_DIR"
+    nohup "$BIN_DIR/colloquia" >> "$LOG_DIR/colloquia.log" 2>&1 &
+fi

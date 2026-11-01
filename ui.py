@@ -12,7 +12,7 @@ import webview
 import models
 import pipeline
 from config import APP, LANGUAGES, MAC, MODELS, PAUSES, WIN, load_config, save_config
-from platform_utils import KeepAwake, open_folder
+from platform_utils import KeepAwake, open_folder, prepare_webview
 from recorder import PCM, Recorder, input_devices, read_meta
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -379,6 +379,7 @@ class Api:
 
 
 def main():
+    prepare_webview()
     if WIN:
         import ctypes
 

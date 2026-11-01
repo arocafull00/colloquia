@@ -40,7 +40,7 @@ Colloquia está pensada para sesiones en las que importa **cómo** se habla, no 
 
 ## Instalación
 
-Descarga el instalador de tu sistema desde la página de *Releases* del repositorio. No hace falta instalar Python.
+Descarga el instalador de tu sistema desde la página de *Releases* del repositorio. Windows y macOS incluyen Python; el instalador nativo de Linux usa el de tu distribución.
 
 ### Windows
 
@@ -60,10 +60,84 @@ Como el instalador no está firmado, Windows SmartScreen puede avisar: pulsa **M
 
 ### Linux
 
+La opción recomendada es la **instalación nativa desde terminal**: usa GTK y
+WebKit de tu distribución, y evita mezclar las bibliotecas del AppImage con
+los controladores gráficos del equipo.
+
+Descarga `Colloquia-Linux-Source.tar.gz`, abre una terminal en la carpeta de
+descarga y ejecuta:
+
+```bash
+mkdir -p "$HOME/.local/share/colloquia"
+tar -xzf Colloquia-Linux-Source.tar.gz --strip-components=1 -C "$HOME/.local/share/colloquia"
+cd "$HOME/.local/share/colloquia"
+bash instalar.sh
+```
+
+El instalador detecta los gestores `apt` (Linux Mint, Ubuntu y Debian), `dnf`
+(Fedora) y `pacman` (Arch y derivadas). Pide `sudo` para las dependencias del
+sistema; la aplicación se instala para tu usuario. Necesita Python 3.10 o
+superior y acceso a internet durante la instalación.
+
+Al terminar, abre **Colloquia** desde el menú de aplicaciones o ejecuta
+`~/.local/bin/colloquia`. El instalador comprueba los módulos de audio y
+transcripción y, si hay una sesión gráfica, abre una ventana oculta para
+comprobar que WebKit carga y ejecuta JavaScript. Si falla, se detiene y muestra
+el error en la terminal. Sin sesión gráfica, esa comprobación queda pendiente.
+
+No muevas la carpeta de instalación: contiene la app y su entorno `.venv`.
+Para actualizar, extrae el nuevo paquete en la misma carpeta y vuelve a ejecutar
+`bash instalar.sh`. Si la distribución ha cambiado de versión de Python,
+renombra primero `.venv` para que se cree un entorno nuevo.
+
+También puedes instalar desde una copia del repositorio con `bash instalar.sh`.
+Para instalar sin abrir la app al terminar, añade `--no-launch`.
+Si el administrador ya ha instalado las dependencias, añade `--skip-system-deps`.
+Estas son las dependencias por distribución:
+
+```bash
+# Linux Mint / Ubuntu / Debian
+sudo apt-get install python3 python3-venv python3-gi python3-gi-cairo gir1.2-gtk-3.0 gir1.2-webkit2-4.1 libportaudio2 xdg-utils
+
+# Fedora
+sudo dnf install python3 python3-pip python3-gobject gtk3 webkit2gtk4.1 portaudio xdg-utils
+
+# Arch
+sudo pacman -S --needed python python-pip python-gobject gtk3 webkit2gtk-4.1 portaudio xdg-utils
+```
+
+En otras distribuciones, instala los paquetes equivalentes y usa
+`bash instalar.sh --skip-system-deps`. La compatibilidad depende de las
+versiones de Python y de las dependencias disponibles; no se garantiza para
+todas las distribuciones. El flujo `linux-native.yml` prueba instalación y
+WebKit en Ubuntu 22.04/24.04, y dependencias e instalación en Fedora y Arch.
+
+La instalación nativa usa la CPU para transcribir, salvo que hayas configurado
+por separado un backend de GPU compatible.
+
+**Paquetes portables alternativos:**
+
 - `Colloquia-…-linux-x86_64.AppImage`: dale permiso de ejecución (`chmod +x`) y ábrelo.
 - `Colloquia-…-linux-x86_64.tar.gz`: descomprímelo y ejecuta `Colloquia/Colloquia`.
 
 Si no detecta el micrófono, instala PortAudio desde tu distribución (por ejemplo, `sudo apt install libportaudio2`).
+
+Si al hacer doble clic no se abre, ejecútalo desde una terminal para ver el error.
+Si el error menciona FUSE, puedes abrirlo sin FUSE con
+`./Colloquia-Linux.AppImage --appimage-extract-and-run` (ajusta el nombre al del archivo descargado).
+
+En la versión 1.3.0, Linux Mint puede mostrar errores de Mesa, `GLIBCXX` o
+«Compositor returned null texture» por incompatibilidades entre las bibliotecas
+del paquete y los controladores del sistema. Para probar el arranque con Qt y
+sin aceleración gráfica de la ventana:
+
+```bash
+PYWEBVIEW_GUI=qt QT_XCB_GL_INTEGRATION=none QTWEBENGINE_CHROMIUM_FLAGS="--disable-gpu" GIO_USE_VFS=local ./Colloquia-Linux.AppImage --appimage-extract-and-run
+```
+
+El código actual aplica este modo de compatibilidad a los paquetes portables de Linux.
+Este cambio requiere recompilar la aplicación para incluirlo en el AppImage;
+no modifica los archivos ya publicados de la versión 1.3.0.
 
 ### Desde el código fuente
 
@@ -71,12 +145,9 @@ Necesitas Python 3.10 o superior.
 
 - **Windows:** doble clic en `instalar.bat`. Si hay una GPU NVIDIA, instala el soporte CUDA, y crea accesos directos en el menú Inicio y en el escritorio.
 - **macOS:** doble clic en `instalar.command`. Crea `~/Applications/Colloquia.app`.
-- **Linux:** instala las dependencias del sistema y ejecuta el script; crea un acceso en el menú de aplicaciones.
+- **Linux:** ejecuta el instalador nativo, que instala las dependencias y crea el acceso en el menú de aplicaciones.
   ```bash
-  sudo apt install python3 python3-venv libportaudio2 libxcb-cursor0
-  ```
-  ```bash
-  ./instalar.sh
+  bash instalar.sh
   ```
 
 ### Modelos y equipos sin conexión
@@ -120,7 +191,8 @@ Al terminar, la transcripción y la identificación de voces se hacen en paralel
 Con la versión instalada:
 - Windows: `colloquia-cli.exe grabacion.mp3 carpeta_salida`, desde la carpeta de instalación.
 - macOS: `/Applications/Colloquia.app/Contents/MacOS/Colloquia grabacion.mp3 carpeta_salida`.
-- Linux: `./Colloquia-…-linux-x86_64.AppImage grabacion.mp3 carpeta_salida`.
+- Linux (instalación nativa): `~/.local/bin/colloquia grabacion.mp3 carpeta_salida`.
+- Linux (AppImage): `./Colloquia-…-linux-x86_64.AppImage grabacion.mp3 carpeta_salida`.
 
 Desde el código fuente:
 
@@ -146,7 +218,7 @@ pyinstaller --noconfirm packaging/colloquia.spec
 - Las DLL de CUDA (cuBLAS y cuDNN) no van en el paquete: si la aplicación detecta una GPU NVIDIA, las descarga de PyPI en `%LOCALAPPDATA%\Colloquia\cuda`.
 - Para incluir whisper.cpp, define `WHISPER_CLI` con la ruta a `whisper-cli` antes de ejecutar PyInstaller; la CI lo compila con Vulkan (Windows y Linux) o Metal (macOS). Sin él, Colloquia usa solo faster-whisper. Sus modelos (GGML, unos 575 MB el Turbo) se descargan aparte la primera vez.
 - El instalador de Windows se crea con Inno Setup: `iscc packaging\colloquia.iss`.
-- El flujo `.github/workflows/build.yml` compila Windows, macOS y Linux. Se ejecuta a mano o al subir una etiqueta `v*`; en ese caso crea un borrador de *release* con los instaladores.
+- El flujo `.github/workflows/build.yml` compila Windows, macOS y Linux, e incluye `Colloquia-Linux-Source.tar.gz` con el instalador nativo y el código necesario. Se ejecuta a mano o al subir una etiqueta `v*`; en ese caso crea un borrador de *release* con los instaladores.
 
 ## Configuración
 

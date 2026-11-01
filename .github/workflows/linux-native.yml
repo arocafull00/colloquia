@@ -1,0 +1,69 @@
+name: Instalación nativa de Linux
+
+on:
+  push:
+    paths: ["**.py", "instalar.sh", "requirements.txt", ".github/workflows/linux-native.yml"]
+  pull_request:
+    paths: ["**.py", "instalar.sh", "requirements.txt", ".github/workflows/linux-native.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ubuntu:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22.04, ubuntu-24.04]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Herramientas de prueba
+        run: sudo apt-get update && sudo apt-get install -y xvfb xauth dbus-x11 desktop-file-utils
+      - name: Instalación e interfaz GTK/WebKit
+        run: dbus-run-session -- xvfb-run -a bash instalar.sh --no-launch
+      - name: Comando y acceso del menú
+        run: |
+          "$HOME/.local/bin/colloquia" --help
+          desktop-file-validate "$HOME/.local/share/applications/colloquia.desktop"
+      - name: Reinstalación sin sesión gráfica
+        run: env -u DISPLAY -u WAYLAND_DISPLAY bash instalar.sh --skip-system-deps --no-launch
+
+  other-distros:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - image: fedora:latest
+            bootstrap: dnf install -y sudo desktop-file-utils git tar gzip shadow-utils util-linux
+          - image: archlinux:latest
+            bootstrap: pacman -Syu --noconfirm sudo desktop-file-utils git tar gzip shadow util-linux
+    runs-on: ubuntu-latest
+    container:
+      image: ${{ matrix.image }}
+    timeout-minutes: 20
+    steps:
+      - name: Herramientas de prueba
+        env:
+          BOOTSTRAP: ${{ matrix.bootstrap }}
+        run: |
+          bash -c "$BOOTSTRAP"
+      - uses: actions/checkout@v4
+      - name: Usuario de prueba
+        run: |
+          useradd -m colloquia-test
+          echo 'colloquia-test ALL=(ALL) NOPASSWD: ALL' > /etc/sudoers.d/colloquia-test
+          chmod 440 /etc/sudoers.d/colloquia-test
+          cp -a "$GITHUB_WORKSPACE" /home/colloquia-test/app
+          chown -R colloquia-test:colloquia-test /home/colloquia-test/app
+      - name: Instalación, dependencias y comando
+        run: |
+          runuser -u colloquia-test -- bash -c '
+            set -e
+            cd /home/colloquia-test/app
+            bash instalar.sh --no-launch
+            "$HOME/.local/bin/colloquia" --help
+            desktop-file-validate "$HOME/.local/share/applications/colloquia.desktop"
+          '
