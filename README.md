@@ -100,7 +100,7 @@ Estas son las dependencias por distribución:
 sudo apt-get install python3 python3-venv python3-gi python3-gi-cairo gir1.2-gtk-3.0 gir1.2-webkit2-4.1 libportaudio2 xdg-utils
 
 # Fedora
-sudo dnf install python3 python3-pip python3-gobject gtk3 webkit2gtk4.1 portaudio xdg-utils
+sudo dnf install python3 python3-pip python3-gobject gobject-introspection gtk3 webkit2gtk4.1 portaudio xdg-utils
 
 # Arch
 sudo pacman -S --needed python python-pip python-gobject gtk3 webkit2gtk-4.1 portaudio xdg-utils
