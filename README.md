@@ -96,16 +96,13 @@ models/
 
 ## Tiempo de procesado
 
-Procesar una sesión de una hora tarda aproximadamente:
+Colloquia transcribe **mientras grabas**, en fragmentos de 30 a 90 segundos que corta en los silencios, y va guardando también el MP3. Al pulsar **Detener** solo queda el último fragmento y la identificación de las voces, que tarda unos 3–10 minutos por hora de sesión según el equipo. La pantalla de grabación muestra hasta qué minuto lleva la transcripción.
 
-| Equipo | Modelo | Tiempo aproximado |
-|---|---|---|
-| GPU NVIDIA | Turbo (recomendado) | 5–10 min |
-| GPU AMD o Intel, Mac con Apple Silicon | Turbo (recomendado) | 5–15 min (sin medir en estos equipos) |
-| Solo CPU | Turbo | 30–60 min |
-| Solo CPU | Medium / Small | 20–40 min |
+En un portátil antiguo sin gráfica dedicada, el modelo Turbo transcribe a una velocidad parecida a la de la conversación. Si el equipo no llega, al terminar transcribe lo que quede pendiente y avisa de que el modelo Small (Ajustes) es casi el doble de rápido, a cambio de algo menos de precisión.
 
-La transcripción y la identificación de voces se hacen en paralelo. Con GPU NVIDIA y el soporte CUDA descargado se usa faster-whisper; con otras GPU (o una NVIDIA sin CUDA) se usa whisper.cpp con Vulkan en Windows y Linux, o Metal en Mac. Si no hay GPU compatible, o whisper.cpp falla, se transcribe con la CPU.
+La transcripción va en un proceso aparte, con prioridad baja para no entorpecer la grabación. Si la app se cierra en mitad de una sesión, al recuperarla aprovecha lo que ya estaba transcrito.
+
+Al terminar, la transcripción y la identificación de voces se hacen en paralelo. Con GPU NVIDIA y el soporte CUDA descargado se usa faster-whisper; con otras GPU (o una NVIDIA sin CUDA) se usa whisper.cpp con Vulkan en Windows y Linux, o Metal en Mac. Si no hay GPU compatible, o whisper.cpp falla, se transcribe con la CPU.
 
 ## Seguridad de la grabación
 

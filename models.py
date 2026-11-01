@@ -155,7 +155,7 @@ def _open(url):
 
 
 def _download(url, dest, progress):
-    tmp = dest + ".part"
+    tmp = f"{dest}.{os.getpid()}.part"
     with _open(url) as r, open(tmp, "wb") as f:
         total = int(r.headers.get("Content-Length") or 0)
         done = 0
@@ -175,7 +175,7 @@ def ensure(model_name, status, cpp=None):
 def _ensure(model_name, status, cpp):
     os.makedirs(MODELS_DIR, exist_ok=True)
     if not segmentation_path():
-        archive = os.path.join(MODELS_DIR, "segmentation.tar.bz2")
+        archive = os.path.join(MODELS_DIR, f"segmentation.{os.getpid()}.tar.bz2")
         _download(SEGMENTATION_URL, archive, lambda p: status("Descargando modelo de voces (1/3)…", p))
         with tarfile.open(archive) as t:
             t.extractall(MODELS_DIR, filter="data")

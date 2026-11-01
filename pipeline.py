@@ -1,11 +1,15 @@
 import bisect
 import gc
 import glob
+import json
 import multiprocessing
 import os
 import queue
 import re
 import sys
+import threading
+import time
+import traceback
 import wave
 from datetime import datetime
 
@@ -34,10 +38,14 @@ RATE = 16000
 MP3 = "sesion.mp3"
 WAV = "sesion.wav"
 TXT = "transcripcion.txt"
+PARTIAL = ".transcripcion.jsonl"
 CHUNK = 1 << 20
 THREADS = max(1, min(8, (os.cpu_count() or 2) // 2))
 DOUBTFUL = 0.45
 MIN_SILENCE = 0.8
+CHUNK_MIN = 30
+CHUNK_MAX = 90
+CUT_GAP = 0.5
 VERBATIM_HINT = "Eh... mmm, pues... yo, yo quería, eh... el pe... el perro. Mmm, no, no sé. Ah, vale. Este... o sea, eh..."
 HALLUCINATIONS = ("amara.org", "subtítulos realizados", "subtítulos por la comunidad")
 WORD_EDGES = re.compile(r"^(\s*)(.*?)([.,;:!?…»\"')\]]*)$", re.S)
@@ -69,44 +77,47 @@ def load_whisper(name):
     return WhisperModel(path, device="cpu", compute_type="int8"), "CPU"
 
 
-def pcm_to_outputs(session_dir, rate, status):
+def write_wav(session_dir, rate, status):
     pcm = os.path.join(session_dir, PCM)
     total = os.path.getsize(pcm) or 1
-    enc = lameenc.Encoder()
-    enc.set_bit_rate(64)
-    enc.set_in_sample_rate(rate)
-    enc.set_channels(1)
-    enc.set_quality(2)
     done = 0
-    with open(pcm, "rb") as src, open(os.path.join(session_dir, MP3), "wb") as mp3, wave.open(
-        os.path.join(session_dir, WAV), "wb"
-    ) as wav:
+    with open(pcm, "rb") as src, wave.open(os.path.join(session_dir, WAV), "wb") as wav:
         wav.setnchannels(1)
         wav.setsampwidth(2)
         wav.setframerate(rate)
         while chunk := src.read(CHUNK):
             chunk = chunk[: len(chunk) // 2 * 2]
-            mp3.write(enc.encode(chunk))
             wav.writeframes(chunk)
             done += len(chunk)
             status("Guardando MP3…", done / total)
-        mp3.write(enc.flush())
 
 
-def transcribe(audio, cfg, status):
-    model, device = load_whisper(cfg["model"])
-    try:
-        words = run_whisper(model, audio, cfg, status)
-    except whisper_cpp.Unavailable as e:
-        print(f"whisper.cpp no disponible ({e}); usando CPU.")
-        from faster_whisper import WhisperModel
+def mp3_encoder(rate):
+    enc = lameenc.Encoder()
+    enc.set_bit_rate(64)
+    enc.set_in_sample_rate(rate)
+    enc.set_channels(1)
+    enc.set_quality(2)
+    return enc
 
-        models.ensure(cfg["model"], status, cpp=False)
-        model, device = WhisperModel(models.whisper_path(cfg["model"]), device="cpu", compute_type="int8"), "CPU"
-        words = run_whisper(model, audio, cfg, status)
-    del model
-    gc.collect()
-    return words, device
+
+class Whisper:
+    def __init__(self, cfg):
+        self.cfg = cfg
+        self.model, self.device = load_whisper(cfg["model"])
+
+    def words(self, audio, offset, status):
+        try:
+            words = run_whisper(self.model, audio, self.cfg, status)
+        except whisper_cpp.Unavailable as e:
+            print(f"whisper.cpp no disponible ({e}); usando CPU.")
+            from faster_whisper import WhisperModel
+
+            models.ensure(self.cfg["model"], status, cpp=False)
+            self.model = WhisperModel(models.whisper_path(self.cfg["model"]), device="cpu", compute_type="int8")
+            self.device = "CPU"
+            words = run_whisper(self.model, audio, self.cfg, status)
+        return [[round(s + offset, 3), round(e + offset, 3), w, p] for s, e, w, p in words]
 
 
 def run_whisper(model, audio, cfg, status):
@@ -129,6 +140,202 @@ def run_whisper(model, audio, cfg, status):
             words.extend([w.start, w.end, w.word, round(w.probability, 3)] for w in seg.words or [] if w.word.strip())
         status("Transcribiendo…", min(1.0, seg.end / duration))
     return words
+
+
+def find_cut(audio, force):
+    from faster_whisper.vad import VadOptions, get_speech_timestamps
+
+    vad = VadOptions(threshold=0.35, min_silence_duration_ms=int(CUT_GAP * 1000), speech_pad_ms=100)
+    speech = get_speech_timestamps(audio, vad)
+    if not speech:
+        return len(audio)
+    gaps = [(a["end"], b["start"]) for a, b in zip(speech, speech[1:])]
+    if len(audio) - speech[-1]["end"] >= 2 * CUT_GAP * RATE:
+        gaps.append((speech[-1]["end"], len(audio)))
+    for a, b in gaps:
+        if (a + b) // 2 >= CHUNK_MIN * RATE:
+            return (a + b) // 2
+    if not force:
+        return None
+    if not gaps:
+        return len(audio)
+    a, b = max(gaps, key=lambda g: g[1] - g[0])
+    return (a + b) // 2
+
+
+def resample(resampler, data, rate):
+    import av
+
+    frame = av.AudioFrame.from_ndarray(np.frombuffer(data, np.int16).reshape(1, -1), format="s16", layout="mono")
+    frame.sample_rate = rate
+    out = [f.to_ndarray().reshape(-1) for f in resampler.resample(frame)]
+    return np.concatenate(out).astype(np.float32) / 32768 if out else np.zeros(0, np.float32)
+
+
+def partial_key(cfg):
+    return [cfg["model"], cfg["language"], cfg.get("verbatim", True)]
+
+
+def load_partial(session_dir, cfg):
+    chunks = []
+    try:
+        with open(os.path.join(session_dir, PARTIAL), encoding="utf-8") as f:
+            for line in f:
+                try:
+                    chunk = json.loads(line)
+                except ValueError:
+                    break
+                if chunk.get("key") != partial_key(cfg):
+                    return []
+                chunks.append(chunk)
+    except OSError:
+        pass
+    return chunks
+
+
+def save_chunk(out, cfg, end, words):
+    out.write(json.dumps({"key": partial_key(cfg), "end": end, "words": words}, ensure_ascii=False) + "\n")
+    out.flush()
+
+
+def live_transcribe(session_dir, rate, cfg, send, finish):
+    import av
+
+    models.ensure(cfg["model"], lambda text, p: send("status", text, p))
+    send("status", "Cargando el modelo de transcripción…", None)
+    whisper = Whisper(cfg)
+    chunks = load_partial(session_dir, cfg)
+    pos = chunks[-1]["end"] if chunks else 0
+    send("pos", pos / RATE)
+    while not os.path.exists(os.path.join(session_dir, PCM)):
+        time.sleep(0.5)
+    resampler = av.AudioResampler(format="s16", layout="mono", rate=RATE)
+    enc = mp3_encoder(rate)
+    offset, received = 0, 0
+    pending = np.zeros(0, np.float32)
+    with (
+        open(os.path.join(session_dir, PCM), "rb") as src,
+        open(os.path.join(session_dir, MP3), "wb") as mp3,
+        open(os.path.join(session_dir, PARTIAL), "w", encoding="utf-8") as out,
+    ):
+        for chunk in chunks:
+            save_chunk(out, cfg, chunk["end"], chunk["words"])
+        while True:
+            final = finish.is_set()
+            src.seek(offset)
+            data = src.read(CHUNK * 8)
+            data = data[: len(data) // 2 * 2]
+            offset += len(data)
+            if data:
+                mp3.write(enc.encode(data))
+                audio = resample(resampler, data, rate)
+                skip = max(0, min(len(audio), pos - received))
+                received += len(audio)
+                pending = np.concatenate([pending, audio[skip:]])
+                if final:
+                    continue
+            elif final:
+                mp3.write(enc.flush())
+                break
+            cut = None
+            if data and len(pending) >= CHUNK_MIN * RATE:
+                cut = find_cut(pending, len(pending) >= CHUNK_MAX * RATE)
+            if cut is None:
+                if not data:
+                    time.sleep(1)
+                continue
+            words = whisper.words(pending[:cut], pos / RATE, lambda *_: None)
+            pos += cut
+            pending = pending[cut:]
+            save_chunk(out, cfg, pos, words)
+            send("pos", pos / RATE)
+        start, lag = pos / RATE, len(pending) / RATE
+        total = start + lag or 1
+        if len(pending):
+            words = whisper.words(pending, start, lambda text, p: send("progress", (start + (p or 0) * lag) / total))
+            save_chunk(out, cfg, pos + len(pending), words)
+    send("done", whisper.device, lag)
+
+
+def transcribe_child(session_dir, rate, cfg, queue, finish):
+    try:
+        if WIN:
+            import ctypes
+
+            ctypes.windll.kernel32.SetPriorityClass(ctypes.windll.kernel32.GetCurrentProcess(), 0x4000)
+        else:
+            os.nice(5)
+        live_transcribe(session_dir, rate, cfg, lambda *msg: queue.put(msg), finish)
+    except Exception as e:
+        traceback.print_exc()
+        queue.put(("error", f"{e.__class__.__name__}: {e}"))
+
+
+class Transcription:
+    def __init__(self, session_dir, rate, cfg):
+        ctx = multiprocessing.get_context("spawn")
+        self.cfg = cfg
+        self.queue = ctx.Queue()
+        self.finish = ctx.Event()
+        self.proc = ctx.Process(target=transcribe_child, args=(session_dir, rate, cfg, self.queue, self.finish), daemon=True)
+        self.proc.start()
+        self.lock = threading.Lock()
+        self.seconds = 0.0
+        self.note = "Preparando la transcripción…"
+        self.error = None
+        self.result = None
+
+    def _handle(self, msg, status, total):
+        kind, *rest = msg
+        if kind == "pos":
+            self.seconds, self.note = rest[0], None
+            if status:
+                status("Transcribiendo…", min(1.0, rest[0] / total))
+        elif kind == "status":
+            self.note = rest[0]
+            if status:
+                status(*rest)
+        elif kind == "progress" and status:
+            status("Transcribiendo…", rest[0])
+        elif kind == "error":
+            self.error = rest[0]
+        elif kind == "done":
+            self.result = rest
+
+    def poll(self):
+        if not self.lock.acquire(blocking=False):
+            return
+        try:
+            while self.error is None and self.result is None:
+                try:
+                    self._handle(self.queue.get_nowait(), None, None)
+                except queue.Empty:
+                    break
+        finally:
+            self.lock.release()
+
+    def alive(self):
+        self.poll()
+        return self.error is None and self.proc.is_alive()
+
+    def wait(self, status, total):
+        self.finish.set()
+        with self.lock:
+            status("Transcribiendo…", min(1.0, self.seconds / total))
+            while self.error is None and self.result is None:
+                try:
+                    self._handle(self.queue.get(timeout=0.5), status, total)
+                except queue.Empty:
+                    if not self.proc.is_alive():
+                        raise RuntimeError("La transcripción se detuvo inesperadamente.")
+        if self.error:
+            raise RuntimeError(self.error)
+        self.proc.join()
+        return self.result
+
+    def cancel(self):
+        if self.proc.is_alive():
+            self.proc.terminate()
 
 
 def diarize(audio, progress):
@@ -355,38 +562,51 @@ def swap_roles(session_dir, cfg):
     return meta
 
 
-def process(session_dir, cfg, status):
+def process(session_dir, cfg, status, live=None):
     from faster_whisper import decode_audio
 
     meta = read_meta(session_dir)
     meta["state"] = "processing"
     write_meta(session_dir, meta)
-    models.ensure(cfg["model"], status)
-
-    pcm_to_outputs(session_dir, meta["rate"], status)
-    meta["duration"] = os.path.getsize(os.path.join(session_dir, PCM)) / 2 / meta["rate"]
-    status("Preparando audio…", None)
-    diarization = Diarization(os.path.join(session_dir, WAV))
+    if live is None or not live.alive():
+        if live is not None:
+            print(f"La transcripción durante la grabación falló ({live.error}); se repite.")
+        live = Transcription(session_dir, meta["rate"], cfg)
     try:
-        audio = decode_audio(os.path.join(session_dir, WAV), sampling_rate=RATE)
-        words, device = transcribe(audio, cfg, status)
-        status("Generando texto…", None)
-        silences = detect_silences(audio)
-        del audio
-        spans = diarization.wait(status)
+        models.ensure(cfg["model"], status)
+        write_wav(session_dir, meta["rate"], status)
+        meta["duration"] = os.path.getsize(os.path.join(session_dir, PCM)) / 2 / meta["rate"]
+        diarization = Diarization(os.path.join(session_dir, WAV))
+        try:
+            device, lag = live.wait(status, meta["duration"])
+            words = [w for chunk in load_partial(session_dir, live.cfg) for w in chunk["words"]]
+            status("Generando texto…", None)
+            audio = decode_audio(os.path.join(session_dir, WAV), sampling_rate=RATE)
+            silences = detect_silences(audio)
+            del audio
+            spans = diarization.wait(status)
+        finally:
+            if diarization.proc.is_alive():
+                diarization.proc.terminate()
     finally:
-        if diarization.proc.is_alive():
-            diarization.proc.terminate()
+        live.cancel()
 
     status("Generando texto…", None)
     turns = build_turns(words, assign_speakers(words, spans))
     meta.update(
-        turns=turns, silences=silences, first_speaker=first_speaker(turns), swap=False, model=cfg["model"], device=device
+        turns=turns,
+        silences=silences,
+        first_speaker=first_speaker(turns),
+        swap=False,
+        model=live.cfg["model"],
+        device=device,
+        lag=round(lag),
     )
     write_meta(session_dir, meta)
     write_txt(session_dir, cfg)
 
     os.remove(os.path.join(session_dir, PCM))
+    os.remove(os.path.join(session_dir, PARTIAL))
     if not cfg["keep_wav"]:
         os.remove(os.path.join(session_dir, WAV))
     meta["state"] = "done"

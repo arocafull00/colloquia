@@ -60,8 +60,8 @@ LANGUAGES = {
 MODELS = {
     "Turbo · rápido y preciso (recomendado)": "large-v3-turbo",
     "Large v3 · máxima precisión, más lento": "large-v3",
-    "Medium · para equipos sin GPU": "medium",
-    "Small · ligero": "small",
+    "Medium · intermedio": "medium",
+    "Small · el más rápido, para portátiles antiguos": "small",
 }
 
 

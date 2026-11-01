@@ -231,6 +231,7 @@ h1 { margin: 0 0 6px; font-size: 26px; font-weight: 600; letter-spacing: -.02em;
 .rec-state .dot.paused { box-shadow: none; }
 .timer { margin: 14px 0 2px; font: 300 76px/1 var(--sans); letter-spacing: -.03em; font-variant-numeric: tabular-nums; }
 .rec-session { color: var(--hero-muted); font-size: 13px; }
+.rec-live { min-height: 18px; margin-top: 6px; color: var(--hero-muted); font-size: 12.5px; font-variant-numeric: tabular-nums; }
 .wave { display: flex; align-items: center; justify-content: center; gap: 3px; height: 72px; width: 100%; margin: 22px 0 4px; }
 .wave i { flex: 1; max-width: 6px; min-height: 3px; border-radius: 3px; background: rgba(255, 255, 255, .85); transition: height .08s; }
 .wave.paused i { background: rgba(255, 255, 255, .25); }
@@ -409,6 +410,7 @@ h1 { margin: 0 0 6px; font-size: 26px; font-weight: 600; letter-spacing: -.02em;
           <div>
             <div class="timer" id="timer">00:00:00</div>
             <div class="rec-session" id="recSession"></div>
+            <div class="rec-live" id="recLive"></div>
           </div>
           <div class="wave" id="wave"></div>
           <div class="rec-alert" id="recAlert"></div>
@@ -779,6 +781,7 @@ function tick(msg) {
     const alertEl = $("#recAlert");
     alertEl.classList.toggle("err", !!msg.error);
     alertEl.textContent = msg.error ? `Error al escribir en disco: ${msg.error}` : msg.silent ? "No se detecta audio. Revisa el micrófono." : "";
+    $("#recLive").textContent = msg.note || (msg.transcribed === undefined ? "" : msg.transcribed < 1 ? "La transcripción empieza tras el primer medio minuto" : `Transcrito mientras grabas: hasta ${clock(msg.transcribed)}`);
     $("#stateDetail").textContent = $("#timer").textContent;
   } else if (name === "processing" && msg.elapsed !== undefined) {
     $("#procElapsed").textContent = clock(msg.elapsed);

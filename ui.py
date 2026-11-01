@@ -21,6 +21,7 @@ APPEARANCE = {"Según el sistema": "system", "Claro": "light", "Oscuro": "dark"}
 DEFAULT_ROLES = ("Psicólogo", "Paciente")
 SILENCE_LEVEL = 0.003
 SILENCE_SECONDS = 30
+SLOW_LAG = 300
 
 
 def dark_mode():
@@ -49,6 +50,7 @@ class Api:
         self._ready = False
         self._lock = threading.RLock()
         self._recorder = Recorder()
+        self._live = None
         self._awake = KeepAwake()
         self._screen = "home"
         self._session_dir = None
@@ -119,6 +121,7 @@ class Api:
                 self._alert(f"No se puede escribir en la carpeta de destino:\n{e}")
                 return
             save_config(self._cfg)
+            self._live = pipeline.Transcription(self._session_dir, self._recorder.rate, dict(self._cfg))
             self._awake.start()
             self._silent_since = None
             self._show("recording")
@@ -132,13 +135,16 @@ class Api:
             if self._screen != "recording":
                 return
             session_dir = self._recorder.stop()
+            live, self._live = self._live, None
             if self._recorder.seconds < 1:
+                live.cancel()
+                live.proc.join(5)
                 self._awake.stop()
                 shutil.rmtree(session_dir, ignore_errors=True)
                 self._alert("La grabación está vacía; no hay nada que procesar.")
                 self._show("home")
                 return
-            self._process(session_dir)
+            self._process(session_dir, live)
 
     def recover(self, path=None):
         with self._lock:
@@ -294,7 +300,7 @@ class Api:
 
         threading.Thread(target=work, daemon=True).start()
 
-    def _process(self, session_dir):
+    def _process(self, session_dir, live=None):
         self._session_dir = session_dir
         self._meta = None
         self._awake.start()
@@ -307,7 +313,7 @@ class Api:
 
         def work():
             try:
-                meta = pipeline.process(session_dir, cfg, status)
+                meta = pipeline.process(session_dir, cfg, status, live)
             except Exception as e:
                 traceback.print_exc()
                 with self._lock:
@@ -319,6 +325,12 @@ class Api:
                 self._awake.stop()
                 self._meta = meta
                 self._show("done")
+                if meta.get("device") == "CPU" and meta.get("lag", 0) > SLOW_LAG and cfg["model"] != "small":
+                    self._alert(
+                        "Este equipo transcribe más despacio de lo que se habla, así que parte de la sesión se ha "
+                        "transcrito al terminar. Si quieres que esté lista antes, elige el modelo Small en Ajustes "
+                        "(más rápido, algo menos preciso)."
+                    )
 
         threading.Thread(target=work, daemon=True).start()
 
@@ -340,6 +352,9 @@ class Api:
                     error=rec.error,
                     silent=bool(self._silent_since and time.monotonic() - self._silent_since > SILENCE_SECONDS),
                 )
+                live = self._live
+                if live and live.alive():
+                    msg.update(transcribed=live.seconds, note=live.note)
             elif self._screen == "processing":
                 msg["elapsed"] = time.monotonic() - self._processing_started
             self._send(msg)
@@ -357,6 +372,8 @@ class Api:
         self._quitting = True
         if self._screen == "recording":
             self._recorder.stop()
+            if self._live:
+                self._live.cancel()
         self._awake.stop()
         self._recorder.close()
 
