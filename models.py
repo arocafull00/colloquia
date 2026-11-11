@@ -260,10 +260,10 @@ def _fetch_whisper(name, progress):
     os.replace(tmp, dest)
 
 
-def ensure(model_name, status, cpp=None, literal=False):
+def ensure(model_name, status, cpp=None, literal=False, transcriber=True):
     with LOCK:
         name = resolve(model_name)
-        _ensure(name, status, uses_whisper_cpp() if cpp is None else cpp, literal)
+        _ensure(name if transcriber else None, status, uses_whisper_cpp() if cpp is None else cpp, literal)
         return name
 
 
@@ -274,7 +274,9 @@ def _ensure(name, status, cpp, literal):
         steps.append(("el modelo de voces", lambda p: _fetch_tar(SEGMENTATION_URL, p)))
     if not embedding_path():
         steps.append(("el modelo de voces", lambda p: _download(EMBEDDING_URL, os.path.join(MODELS_DIR, os.path.basename(EMBEDDING_URL)), p)))
-    if is_sherpa(name):
+    if name is None:
+        pass
+    elif is_sherpa(name):
         if not sherpa_path(name):
             steps.append(("el modelo de transcripción", lambda p: _fetch_tar(SHERPA_URL.format(SHERPA[name][0]), p)))
     elif cpp:

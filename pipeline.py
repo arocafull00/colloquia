@@ -16,7 +16,9 @@ from datetime import datetime
 import lameenc
 import numpy as np
 
+import literal
 import models
+import sherpa_asr
 import whisper_cpp
 from config import CUDA_DIR, MAC, WIN
 
@@ -47,6 +49,8 @@ CHUNK_MIN = 30
 CHUNK_MAX = 90
 CUT_GAP = 0.5
 VERBATIM_HINT = "Eh... mmm, pues... yo, yo quería, eh... el pe... el perro. Mmm, no, no sé. Ah, vale. Este... o sea, eh..."
+MAIN_SHARE = 0.7
+SLOW = 0.8
 HALLUCINATIONS = ("amara.org", "subtítulos realizados", "subtítulos por la comunidad")
 WORD_EDGES = re.compile(r"^(\s*)(.*?)([.,;:!?…»\"')\]]*)$", re.S)
 
@@ -60,9 +64,11 @@ def secs(t):
     return f"{t:.1f}".replace(".", ",") + " s"
 
 
-def load_whisper(name):
+def load_engine(name):
     from faster_whisper import WhisperModel
 
+    if models.is_sherpa(name):
+        return sherpa_asr.Model.transducer(models.sherpa_path(name), THREADS), "CPU"
     if models.uses_whisper_cpp():
         return whisper_cpp.Model(models.whisper_cli(), models.ggml_path(name), THREADS), "GPU"
     path = models.whisper_path(name) or name
@@ -102,22 +108,29 @@ def mp3_encoder(rate):
 
 
 class Whisper:
-    def __init__(self, cfg):
-        self.cfg = cfg
-        self.model, self.device = load_whisper(cfg["model"])
+    def __init__(self, cfg, name, said=None):
+        self.cfg, self.name = cfg, name
+        self.model, self.device = load_engine(name)
+        self.said = said
+        if said is None and models.wants_literal(cfg) and models.sherpa_path("literal"):
+            self.said = sherpa_asr.Model.ctc(models.sherpa_path("literal"), THREADS)
 
     def words(self, audio, offset, status):
+        main = status if self.said is None else lambda text, p: status(text, None if p is None else p * MAIN_SHARE)
         try:
-            words = run_whisper(self.model, audio, self.cfg, status)
+            words = run_whisper(self.model, audio, self.cfg, main)
         except whisper_cpp.Unavailable as e:
             print(f"whisper.cpp no disponible ({e}); usando CPU.")
             from faster_whisper import WhisperModel
 
-            models.ensure(self.cfg["model"], status, cpp=False)
-            self.model = WhisperModel(models.whisper_path(self.cfg["model"]), device="cpu", compute_type="int8")
+            models.ensure(self.name, status, cpp=False)
+            self.model = WhisperModel(models.whisper_path(self.name), device="cpu", compute_type="int8")
             self.device = "CPU"
-            words = run_whisper(self.model, audio, self.cfg, status)
-        return [[round(s + offset, 3), round(e + offset, 3), w, p] for s, e, w, p in words]
+            words = run_whisper(self.model, audio, self.cfg, main)
+        if self.said is not None:
+            said = literal.heard(self.said, audio, lambda p: status("Transcribiendo…", MAIN_SHARE + (1 - MAIN_SHARE) * p))
+            words = literal.annotate(words, said)
+        return [[round(w[0] + offset, 3), round(w[1] + offset, 3), *w[2:]] for w in words]
 
 
 def run_whisper(model, audio, cfg, status):
@@ -173,7 +186,7 @@ def resample(resampler, data, rate):
 
 
 def partial_key(cfg):
-    return [cfg["model"], cfg["language"], cfg.get("verbatim", True)]
+    return [cfg["model"], cfg["language"], cfg.get("verbatim", True), bool(models.wants_literal(cfg))]
 
 
 def load_partial(session_dir, cfg):
@@ -193,17 +206,31 @@ def load_partial(session_dir, cfg):
     return chunks
 
 
-def save_chunk(out, cfg, end, words):
-    out.write(json.dumps({"key": partial_key(cfg), "end": end, "words": words}, ensure_ascii=False) + "\n")
+def save_chunk(out, cfg, end, words, model):
+    out.write(json.dumps({"key": partial_key(cfg), "end": end, "model": model, "words": words}, ensure_ascii=False) + "\n")
     out.flush()
 
 
 def live_transcribe(session_dir, rate, cfg, send, finish):
     import av
 
-    models.ensure(cfg["model"], lambda text, p: send("status", text, p))
+    name = models.ensure(cfg["model"], lambda text, p: send("status", text, p), literal=models.wants_literal(cfg))
     send("status", "Cargando el modelo de transcripción…", None)
-    whisper = Whisper(cfg)
+    whisper = Whisper(cfg, name)
+    speeds, switch = [], None
+
+    def adapt(whisper):
+        nonlocal switch
+        if cfg["model"] != "auto" or whisper.name == models.FAST or whisper.device != "CPU" or models.needs_cuda():
+            return whisper
+        if switch is None and len(speeds) >= 2 and sum(speeds[-2:]) / 2 > SLOW:
+            print(f"Transcripción lenta ({speeds[-1]:.2f}x); se cambia al modelo rápido.")
+            switch = threading.Thread(target=models.ensure, args=(models.FAST, lambda *_: None), daemon=True)
+            switch.start()
+        elif switch is not None and not switch.is_alive() and models.sherpa_path(models.FAST):
+            models.remember(models.FAST)
+            return Whisper(cfg, models.FAST, whisper.said)
+        return whisper
     chunks = load_partial(session_dir, cfg)
     pos = chunks[-1]["end"] if chunks else 0
     send("pos", pos / RATE)
@@ -219,7 +246,7 @@ def live_transcribe(session_dir, rate, cfg, send, finish):
         open(os.path.join(session_dir, PARTIAL), "w", encoding="utf-8") as out,
     ):
         for chunk in chunks:
-            save_chunk(out, cfg, chunk["end"], chunk["words"])
+            save_chunk(out, cfg, chunk["end"], chunk["words"], chunk.get("model", name))
         while True:
             final = finish.is_set()
             src.seek(offset)
@@ -244,16 +271,20 @@ def live_transcribe(session_dir, rate, cfg, send, finish):
                 if not data:
                     time.sleep(1)
                 continue
+            started = time.monotonic()
             words = whisper.words(pending[:cut], pos / RATE, lambda *_: None)
+            speeds.append((time.monotonic() - started) / (cut / RATE))
             pos += cut
             pending = pending[cut:]
-            save_chunk(out, cfg, pos, words)
+            save_chunk(out, cfg, pos, words, whisper.name)
             send("pos", pos / RATE)
+            whisper = adapt(whisper)
         start, lag = pos / RATE, len(pending) / RATE
         total = start + lag or 1
         if len(pending):
+            whisper = adapt(whisper)
             words = whisper.words(pending, start, lambda text, p: send("progress", (start + (p or 0) * lag) / total))
-            save_chunk(out, cfg, pos + len(pending), words)
+            save_chunk(out, cfg, pos + len(pending), words, whisper.name)
     send("done", whisper.device, lag)
 
 
@@ -292,7 +323,7 @@ class Transcription:
             if status:
                 status("Transcribiendo…", min(1.0, rest[0] / total))
         elif kind == "status":
-            self.note = rest[0]
+            self.note = rest[0] + (f" {rest[1] * 100:.0f} %" if rest[1] is not None else "")
             if status:
                 status(*rest)
         elif kind == "progress" and status:
@@ -318,7 +349,7 @@ class Transcription:
         self.poll()
         return self.error is None and self.proc.is_alive()
 
-    def wait(self, status, total):
+    def wait(self, status, total, tick=None):
         self.finish.set()
         with self.lock:
             status("Transcribiendo…", min(1.0, self.seconds / total))
@@ -328,6 +359,8 @@ class Transcription:
                 except queue.Empty:
                     if not self.proc.is_alive():
                         raise RuntimeError("La transcripción se detuvo inesperadamente.")
+                if tick:
+                    tick()
         if self.error:
             raise RuntimeError(self.error)
         self.proc.join()
@@ -383,24 +416,37 @@ class Diarization:
         self.proc = ctx.Process(target=diarize_child, args=(wav_path, self.queue), daemon=True)
         self.proc.start()
         self.progress = 0.0
+        self.result = self.error = None
+
+    def poll(self, status, timeout=0.0):
+        got = False
+        try:
+            while self.result is None and self.error is None:
+                kind, value = self.queue.get(timeout=timeout) if timeout and not got else self.queue.get_nowait()
+                got = True
+                if kind == "progress":
+                    self.progress = value
+                elif kind == "error":
+                    self.error = value
+                else:
+                    self.result, self.progress = value, 1.0
+        except queue.Empty:
+            pass
+        if got and self.error is None:
+            status("Identificando voces…", self.progress)
+        return got
 
     def wait(self, status):
+        status("Identificando voces…", self.progress)
         while True:
-            try:
-                kind, value = self.queue.get(timeout=0.5)
-            except queue.Empty:
-                if not self.proc.is_alive():
-                    raise RuntimeError("La identificación de voces se detuvo inesperadamente.")
-                status("Identificando voces…", self.progress)
-                continue
-            if kind == "progress":
-                self.progress = value
-                status("Identificando voces…", value)
-            elif kind == "error":
-                raise RuntimeError(value)
-            else:
+            got = self.poll(status, 0.5)
+            if self.error:
+                raise RuntimeError(self.error)
+            if self.result is not None:
                 self.proc.join()
-                return value
+                return self.result
+            if not got and not self.proc.is_alive():
+                raise RuntimeError("La identificación de voces se detuvo inesperadamente.")
 
 
 def detect_silences(audio):
@@ -483,14 +529,15 @@ def plain(turn):
     return "".join(w[2] for w in turn["words"]).strip()
 
 
-def render(turn, pauses, pause_min, mark_doubtful):
+def render(turn, pauses, pause_min, mark_doubtful, show_said=False):
     out = []
-    for wi, (start, end, text, prob) in enumerate(turn["words"]):
+    for wi, (start, end, text, prob, *said) in enumerate(turn["words"]):
         if wi:
             out.extend(f" (pausa {secs(d)})" for _, d in pauses.get(wi, []) if d >= pause_min)
-        if mark_doubtful and prob < DOUBTFUL:
+        doubt, said = mark_doubtful and prob < DOUBTFUL, show_said and said
+        if doubt or said:
             lead, core, tail = WORD_EDGES.match(text).groups()
-            text = f"{lead}{core}[?]{tail}"
+            text = lead + core + ("[?]" if doubt else "") + (f" ⟨{said[0]}⟩" if said else "") + tail
         out.append(text)
     return "".join(out).strip()
 
@@ -517,7 +564,7 @@ def samples(meta):
 
 
 def entries(meta, cfg):
-    pause_min, doubtful = cfg.get("pause_min", 1.5), cfg.get("mark_doubtful", True)
+    pause_min, doubtful, said = cfg.get("pause_min", 1.5), cfg.get("mark_doubtful", True), cfg.get("literal", True)
     silences = silences_before_words(meta)
     out = []
     for ti, t in enumerate(meta["turns"]):
@@ -525,7 +572,7 @@ def entries(meta, cfg):
             if d >= pause_min:
                 out.append({"start": start, "end": start + d, "role": None, "text": f"(silencio {secs(d)})"})
         pauses = {wi: v for (i, wi), v in silences.items() if i == ti}
-        out.append({"start": t["start"], "end": t["end"], "role": role_of(meta, t["speaker"]), "text": render(t, pauses, pause_min, doubtful)})
+        out.append({"start": t["start"], "end": t["end"], "role": role_of(meta, t["speaker"]), "text": render(t, pauses, pause_min, doubtful, said)})
     return out
 
 
@@ -546,6 +593,8 @@ def write_txt(session_dir, cfg):
     ]
     if doubtful:
         lines.append("  palabra[?]             reconocida con poca seguridad: conviene escucharla en el MP3")
+    if cfg.get("literal", True) and meta.get("said"):
+        lines.append("  pintor ⟨pantor⟩        lo que se oye tal cual, cuando no coincide con la palabra reconocida")
     lines += ["  Las duraciones son aproximadas (±0,5 s).", "", ""]
     for e in entries(meta, cfg):
         who = "" if e["role"] is None else f"{roles[e['role']]}: "
@@ -573,14 +622,15 @@ def process(session_dir, cfg, status, live=None):
             print(f"La transcripción durante la grabación falló ({live.error}); se repite.")
         live = Transcription(session_dir, meta["rate"], cfg)
     try:
-        models.ensure(cfg["model"], status)
+        models.ensure(cfg["model"], status, transcriber=False)
         write_wav(session_dir, meta["rate"], status)
         meta["duration"] = os.path.getsize(os.path.join(session_dir, PCM)) / 2 / meta["rate"]
         diarization = Diarization(os.path.join(session_dir, WAV))
         try:
-            device, lag = live.wait(status, meta["duration"])
-            words = [w for chunk in load_partial(session_dir, live.cfg) for w in chunk["words"]]
-            status("Generando texto…", None)
+            device, lag = live.wait(status, meta["duration"], lambda: diarization.poll(status))
+            chunks = load_partial(session_dir, live.cfg)
+            words = [w for chunk in chunks for w in chunk["words"]]
+            used = list(dict.fromkeys(chunk.get("model", live.cfg["model"]) for chunk in chunks))
             audio = decode_audio(os.path.join(session_dir, WAV), sampling_rate=RATE)
             silences = detect_silences(audio)
             del audio
@@ -598,8 +648,9 @@ def process(session_dir, cfg, status, live=None):
         silences=silences,
         first_speaker=first_speaker(turns),
         swap=False,
-        model=live.cfg["model"],
+        model=" + ".join(used) or live.cfg["model"],
         device=device,
+        said=any(len(w) > 4 for w in words),
         lag=round(lag),
     )
     write_meta(session_dir, meta)
