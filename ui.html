@@ -98,6 +98,9 @@ nav .badge { margin-left: auto; min-width: 20px; padding: 0 6px; border-radius: 
 @keyframes pulse { 50% { opacity: .35; } }
 .side-foot b { display: block; font-size: 13px; font-weight: 600; }
 .side-foot small { display: block; color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
+.side-foot > div { flex: 1; min-width: 0; }
+.mini-bar { height: 4px; margin-top: 8px; border-radius: 99px; background: var(--active); overflow: hidden; }
+.mini-bar i { display: block; height: 100%; width: 0; border-radius: 99px; background: var(--on); transition: width .3s; }
 
 main {
   flex: 1; min-width: 0; margin: 10px 10px 10px 0;
@@ -262,6 +265,13 @@ h1 { margin: 0 0 6px; font-size: 26px; font-weight: 600; letter-spacing: -.02em;
 .step-name { color: var(--muted); font-weight: 500; }
 .step.active .step-name { color: var(--text); font-weight: 600; }
 .step.done .step-name { color: var(--text); }
+.step-text { flex: 1; min-width: 0; }
+.step-detail { display: block; color: var(--muted); font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.step-pct { flex: none; color: var(--muted); font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.step.active .step-pct { color: var(--text); }
+.proc-total { display: flex; align-items: baseline; gap: 14px; max-width: 720px; margin: -8px 0 18px; }
+.proc-total strong { font: 600 44px/1 var(--sans); letter-spacing: -.03em; font-variant-numeric: tabular-nums; }
+.proc-total span { color: var(--muted); font-size: 14px; }
 @keyframes spin { to { transform: rotate(360deg); } }
 .progress { position: relative; height: 8px; margin: 22px 0 10px; border-radius: 99px; background: var(--active); overflow: hidden; }
 .progress i { position: absolute; inset: 0 auto 0 0; width: 0; border-radius: 99px; background: var(--on); transition: width .3s; }
@@ -306,6 +316,7 @@ h1 { margin: 0 0 6px; font-size: 26px; font-weight: 600; letter-spacing: -.02em;
 .turn.silence p { grid-row: 1; color: var(--muted); font: italic 13px/1.5 var(--sans); }
 .turn .pause { color: var(--muted); font: italic 13px var(--sans); }
 .turn .doubt { text-decoration: underline dotted var(--orange) 2px; text-underline-offset: 4px; }
+.turn .said { color: var(--voice2); font: italic 600 13.5px var(--sans); }
 .turn .doubt::after { content: "?"; margin-left: 1px; color: var(--orange); font: 600 11px var(--sans); vertical-align: super; }
 .row.clickable { cursor: pointer; }
 .player { position: sticky; top: 12px; z-index: 2; display: flex; align-items: center; gap: 14px; max-width: 760px; margin-top: 22px; padding: 10px 18px 10px 10px; border: 1px solid var(--line); border-radius: 14px; background: var(--panel); box-shadow: var(--shadow); }
@@ -379,7 +390,7 @@ h1 { margin: 0 0 6px; font-size: 26px; font-weight: 600; letter-spacing: -.02em;
   </nav>
   <div class="side-foot">
     <span class="dot loading" id="dot"></span>
-    <div><b id="stateLabel">Cargando…</b><small id="stateDetail"></small></div>
+    <div><b id="stateLabel">Cargando…</b><small id="stateDetail"></small><div class="mini-bar" id="bannerBar" hidden><i></i></div></div>
   </div>
 </aside>
 
@@ -457,6 +468,7 @@ h1 { margin: 0 0 6px; font-size: 26px; font-weight: 600; letter-spacing: -.02em;
     <div class="view" id="view-processing">
       <h1>Procesando la sesión</h1>
       <p class="lead">Todo se procesa en este equipo. Puede tardar unos minutos; no cierres Colloquia ni apagues el ordenador.</p>
+      <div class="proc-total"><strong id="procPct">0 %</strong><span id="procEta">Calculando el tiempo restante…</span></div>
       <div class="card steps" id="steps"></div>
       <div style="max-width:720px">
         <div class="progress" id="progress"><i></i></div>
@@ -536,7 +548,7 @@ h1 { margin: 0 0 6px; font-size: 26px; font-weight: 600; letter-spacing: -.02em;
     <div class="card-title">Transcripción</div>
     <div class="card">
       <div class="setting">
-        <div class="label"><b>Modelo</b><small>Más grande es más preciso, pero más lento</small></div>
+        <div class="label"><b>Modelo</b><small>Automático elige según la potencia de este equipo</small></div>
         <div class="control"><div class="select"><select data-key="model"></select></div></div>
       </div>
       <div class="setting">
@@ -554,6 +566,10 @@ h1 { margin: 0 0 6px; font-size: 26px; font-weight: 600; letter-spacing: -.02em;
       <div class="setting">
         <div class="label"><b>Marcar palabras dudosas</b><small>Añade [?] a lo que conviene revisar escuchando el audio</small></div>
         <label class="switch"><input type="checkbox" data-key="mark_doubtful"><span></span></label>
+      </div>
+      <div class="setting">
+        <div class="label"><b>Mostrar la pronunciación literal</b><small>Añade ⟨pantor⟩ junto a «pintor» si se oye distinto. Solo en español</small></div>
+        <label class="switch"><input type="checkbox" data-key="literal"><span></span></label>
       </div>
       <div class="setting">
         <div class="label"><b>Conservar el audio sin comprimir</b><small>Guarda también un .wav junto al MP3</small></div>
@@ -601,10 +617,17 @@ h1 { margin: 0 0 6px; font-size: 26px; font-weight: 600; letter-spacing: -.02em;
 <script>
 const $ = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
-const STAGES = ["Guardando MP3", "Transcribiendo", "Identificando voces", "Generando texto"];
+const STAGES = [
+  { name: "Preparando la transcripción", match: ["Preparando", "Descargando", "Cargando"], weight: 0, after: [] },
+  { name: "Guardando MP3", match: ["Guardando MP3"], weight: 5, after: [0] },
+  { name: "Transcribiendo", match: ["Transcribiendo"], weight: 60, after: [0, 1] },
+  { name: "Identificando voces", match: ["Identificando voces"], weight: 30, after: [0, 1] },
+  { name: "Generando texto", match: ["Generando texto"], weight: 5, after: [0, 1, 2, 3] },
+];
+const newSteps = () => STAGES.map(() => ({ state: "", p: null, text: "" }));
 const WAVE_BARS = 72;
 const METER_BARS = 18;
-const state = { cfg: {}, options: {}, screen: { name: "home" }, banner: "", sessions: [], paused: false, page: "record", stage: -1, wave: [], transcript: null, back: "sessions" };
+const state = { cfg: {}, options: {}, screen: { name: "home" }, banner: "", bannerP: null, sessions: [], paused: false, page: "record", stage: -1, steps: newSteps(), eta: null, wave: [], transcript: null, back: "sessions" };
 
 const colloquia = {
   ready: false,
@@ -624,6 +647,7 @@ function handle(msg) {
     renderSessions();
   } else if (msg.type === "banner") {
     state.banner = msg.text;
+    state.bannerP = msg.p ?? null;
     renderStatus();
   } else if (msg.type === "alert") alertBox(msg.text);
   else if (msg.type === "confirmQuit") confirmQuit(msg.screen);
@@ -761,7 +785,7 @@ function renderStatus() {
   } else if (name === "processing") {
     dot = "processing";
     label = "Procesando";
-    detail = STAGES[state.stage] || "Preparando…";
+    detail = STAGES[state.stage] ? STAGES[state.stage].name : "Preparando…";
   } else if (name === "error") {
     dot = "error";
     label = "Error al procesar";
@@ -770,8 +794,11 @@ function renderStatus() {
   if (state.banner && name !== "recording") {
     if (name !== "processing") dot = "loading";
     if (name === "home" || name === "done") label = "Preparando modelos";
-    detail = state.banner;
+    detail = state.banner + (state.bannerP === null ? "" : ` ${pct(state.bannerP)}`);
   }
+  const bar = $("#bannerBar");
+  bar.hidden = !state.banner || state.bannerP === null || name === "recording";
+  bar.querySelector("i").style.width = pct(state.bannerP || 0).replace(" ", "");
   $("#dot").className = "dot " + dot;
   $("#stateLabel").textContent = label;
   $("#stateDetail").textContent = detail;
@@ -794,9 +821,13 @@ function setScreen(screen) {
     renderRecording();
   } else if (screen.name === "processing" && prev !== "processing") {
     state.stage = -1;
+    state.steps = newSteps();
+    state.eta = { start: Date.now(), t0: null, g0: 0 };
     renderSteps();
     $("#procText").textContent = "Preparando…";
     $("#procElapsed").textContent = "";
+    $("#procPct").textContent = "0 %";
+    $("#procEta").textContent = "Calculando el tiempo restante…";
     setBar(null);
   } else if (screen.name === "done") {
     renderDone();
@@ -836,10 +867,11 @@ function tick(msg) {
     const alertEl = $("#recAlert");
     alertEl.classList.toggle("err", !!msg.error);
     alertEl.textContent = msg.error ? `Error al escribir en disco: ${msg.error}` : msg.silent ? "No se detecta audio. Revisa el micrófono." : "";
-    $("#recLive").textContent = msg.note || (msg.transcribed === undefined ? "" : msg.transcribed < 1 ? "La transcripción empieza tras el primer medio minuto" : `Transcrito mientras grabas: hasta ${clock(msg.transcribed)}`);
+    $("#recLive").textContent = msg.note || (msg.transcribed === undefined ? "" : msg.transcribed < 1 ? "La transcripción empieza tras el primer medio minuto" : `Transcrito mientras grabas: ${pct(Math.min(1, msg.transcribed / Math.max(1, msg.seconds)))} · hasta ${clock(msg.transcribed)}`);
     $("#stateDetail").textContent = $("#timer").textContent;
   } else if (name === "processing" && msg.elapsed !== undefined) {
     $("#procElapsed").textContent = clock(msg.elapsed);
+    renderEta();
   }
 }
 
@@ -854,11 +886,41 @@ function renderRecording() {
   renderStatus();
 }
 
+function pct(p) {
+  return `${Math.floor(Math.min(1, Math.max(0, p)) * 100)} %`;
+}
+
 function renderSteps() {
-  $("#steps").replaceChildren(...STAGES.map((name, i) => {
-    const cls = i < state.stage ? "done" : i === state.stage ? "active" : "";
-    return el("div", { class: "setting step " + cls }, el("span", { class: "step-icon" }, icon("check")), el("span", { class: "step-name" }, name));
+  $("#steps").replaceChildren(...STAGES.map((stage, i) => {
+    const s = state.steps[i];
+    const detail = s.state === "active" && s.text && !s.text.startsWith(stage.name) ? s.text : "";
+    const amount = s.state === "done" ? "100 %" : s.state === "active" && s.p !== null ? pct(s.p) : "";
+    return el("div", { class: "setting step " + s.state },
+      el("span", { class: "step-icon" }, icon("check")),
+      el("span", { class: "step-text" }, el("span", { class: "step-name" }, stage.name), el("small", { class: "step-detail" }, detail)),
+      el("span", { class: "step-pct" }, amount));
   }));
+}
+
+function totalProgress() {
+  let done = 0, all = 0;
+  STAGES.forEach((stage, i) => {
+    const s = state.steps[i];
+    all += stage.weight;
+    done += stage.weight * (s.state === "done" ? 1 : s.p || 0);
+  });
+  return done / all;
+}
+
+function renderEta() {
+  const e = state.eta;
+  if (!e || e.t0 === null) return;
+  const g = totalProgress();
+  const spent = (Date.now() - e.t0) / 1000;
+  if (spent < 8 || g - e.g0 < 0.01) return;
+  const left = (1 - g) * spent / (g - e.g0);
+  const mins = Math.round(left / 60);
+  $("#procEta").textContent = left < 60 ? "Queda menos de un minuto" : mins === 1 ? "Queda alrededor de 1 minuto" : `Quedan unos ${mins} minutos`;
 }
 
 function setBar(p) {
@@ -868,14 +930,30 @@ function setBar(p) {
 }
 
 function progress(text, p) {
-  $("#procText").textContent = text;
-  const current = STAGES.findIndex(name => text.startsWith(name));
-  if (current >= 0 && current !== state.stage) {
-    state.stage = current;
-    renderSteps();
+  const k = STAGES.findIndex(stage => stage.match.some(m => text.startsWith(m)));
+  if (k < 0) {
+    $("#procText").textContent = text;
+    return;
+  }
+  const step = state.steps[k];
+  step.text = text;
+  if (p !== null && p !== undefined) step.p = p;
+  step.state = step.p !== null && step.p >= 1 && k !== 0 ? "done" : "active";
+  for (const j of STAGES[k].after) {
+    state.steps[j].state = "done";
+    state.steps[j].p = 1;
+  }
+  if (k !== state.stage) {
+    state.stage = k;
     renderStatus();
   }
-  setBar(p);
+  renderSteps();
+  const g = totalProgress();
+  if (state.eta && state.eta.t0 === null && k > 0) Object.assign(state.eta, { t0: Date.now(), g0: g });
+  $("#procText").textContent = `${STAGES[k].name}${step.p !== null ? " · " + pct(step.p) : ""}`;
+  $("#procPct").textContent = pct(g);
+  setBar(k === 0 ? (p ?? null) : g);
+  renderEta();
 }
 
 function renderDone() {
@@ -997,8 +1075,9 @@ player.audio.addEventListener("error", () => {
 });
 
 function richText(text) {
-  return text.split(/(\(pausa [^)]*\)|\S+?\[\?\])/).filter(Boolean).map(part => {
+  return text.split(/(\(pausa [^)]*\)|\S+?\[\?\]|⟨[^⟩]*⟩)/).filter(Boolean).map(part => {
     if (part.startsWith("(pausa ")) return el("span", { class: "pause" }, part);
+    if (part.startsWith("⟨")) return el("span", { class: "said", title: "Lo que se oye tal cual" }, part);
     if (part.endsWith("[?]")) return el("span", { class: "doubt", title: "Reconocida con poca seguridad" }, part.slice(0, -3));
     return part;
   });
@@ -1213,7 +1292,7 @@ document.addEventListener("keydown", e => {
 
 window.addEventListener("pywebviewready", async () => {
   const init = await pywebview.api.init();
-  Object.assign(state, { cfg: init.cfg, options: init.options, banner: init.banner, sessions: init.sessions });
+  Object.assign(state, { cfg: init.cfg, options: init.options, banner: init.banner, bannerP: init.bannerP ?? null, sessions: init.sessions });
   buildBars($("#wave"), WAVE_BARS);
   buildBars($("#homeMeter"), METER_BARS);
   applyTheme();

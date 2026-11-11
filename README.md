@@ -29,7 +29,13 @@ Colloquia está pensada para sesiones en las que importa **cómo** se habla, no 
   - El umbral se configura en Ajustes (1, 1,5, 2 o 3 s).
 - Marca con `palabra[?]` las palabras que el modelo reconoce con poca seguridad. Suelen ser palabras mal pronunciadas o poco claras, y conviene escucharlas en el MP3.
 
-> **Limitación importante:** Whisper, el modelo de transcripción, se entrenó para producir texto legible. Aunque Colloquia lo fuerza a transcribir de forma literal, a veces sigue «corrigiendo» una palabra mal pronunciada por la correcta (por ejemplo *gande* → *grande*). La transcripción sirve de guía y el MP3 es la referencia: para un análisis fino del habla, revisa los fragmentos marcados con `[?]` escuchando el audio.
+- Marca con `palabra ⟨lo que se oye⟩` las palabras que se pronuncian distinto de como las reconoce el modelo principal (por ejemplo `pintor ⟨pantor⟩`). Se puede desactivar en Ajustes.
+
+### Cómo funciona la pronunciación literal
+
+Los modelos de transcripción habituales (Whisper, Parakeet) aprenden a producir texto correcto y tienden a «corregir» lo mal pronunciado (*pantor* → *pintor*). Por eso, en español, Colloquia hace un segundo pase con un modelo distinto (Omnilingual ASR, de Meta) que reconoce letra a letra, sin diccionario ni modelo de lenguaje, y escribe lo que suena. Cuando los dos no coinciden, se anotan las dos formas: la palabra reconocida y, entre ⟨ ⟩, lo que se oye.
+
+El segundo modelo también se equivoca, sobre todo con habla rápida o con ruido, así que puede anotar palabras que se dijeron bien. El MP3 sigue siendo la referencia: las anotaciones señalan dónde conviene escuchar.
 
 ## Identificación de las voces
 
@@ -152,28 +158,48 @@ Necesitas Python 3.10 o superior.
 
 ### Modelos y equipos sin conexión
 
-La primera vez se descargan unos 1,7 GB con el modelo Turbo:
-- el modelo de transcripción, desde Hugging Face, en `~/.cache/huggingface`;
-- los modelos de voces, desde GitHub, en la carpeta de configuración de Colloquia.
+La primera vez se descargan los modelos en la carpeta de configuración de Colloquia (en `models/`):
+- el modelo de transcripción: unos 640 MB el Rápido (Parakeet, desde GitHub) o 1,6 GB el Turbo (desde Hugging Face);
+- el de pronunciación literal, unos 350 MB, si el idioma es español;
+- los de voces, unos 35 MB, desde GitHub.
 
 Para instalar en un equipo sin internet, copia los modelos en una carpeta `models/` junto a la aplicación: junto a `Colloquia.exe`, `Colloquia.app` o el `.AppImage` en las versiones instaladas, o junto a `colloquia.py` si usas el código fuente.
 
 ```
 models/
-  faster-whisper-large-v3-turbo/   (model.bin, config.json, tokenizer.json…)
+  sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8/   (encoder, decoder, joiner, tokens.txt)
+  sherpa-onnx-omnilingual-asr-1600-languages-300M-ctc-int8-2025-11-12/   (model.int8.onnx, tokens.txt)
+  faster-whisper-large-v3-turbo/   (model.bin, config.json, tokenizer.json…; solo para Turbo)
   sherpa-onnx-pyannote-segmentation-3-0/model.onnx
   3dspeaker_speech_campplus_sv_zh_en_16k-common_advanced.onnx
 ```
 
+## Modelos
+
+En **Ajustes → Modelo**:
+
+| Modelo | Motor | Para qué equipo |
+|---|---|---|
+| **Automático** (recomendado) | Elige uno de los de abajo | Cualquiera |
+| **Rápido** | Parakeet TDT 0.6B v3 (NVIDIA), en la CPU | Portátiles sin gráfica dedicada. Varias veces más rápido que Whisper Turbo en CPU, con una precisión parecida en español y menos memoria (~0,9 GB) |
+| **Equilibrado** | Whisper Large v3 Turbo | Equipos con gráfica (NVIDIA, AMD, Intel o Apple Silicon) |
+| **Máxima precisión** | Whisper Large v3 | Equipos con gráfica potente |
+
+Automático usa Equilibrado si hay una gráfica compatible o el equipo es potente (12 GB de RAM y 8 hilos o más), y Rápido en el resto. Además mide la velocidad real durante la grabación: si Turbo no da abasto, descarga el modelo Rápido en segundo plano, cambia a él sin cortar la sesión y lo recuerda para las siguientes.
+
+Para comparar los modelos en un equipo concreto, lee en voz alta [`tools/guion-prueba.md`](tools/guion-prueba.md), guarda la grabación en `tools/audio/` y ejecuta `python tools/bench.py`. Muestra la velocidad, la memoria, los errores y cuántas palabras mal pronunciadas conserva cada modelo.
+
 ## Tiempo de procesado
 
-Colloquia transcribe **mientras grabas**, en fragmentos de 30 a 90 segundos que corta en los silencios, y va guardando también el MP3. Al pulsar **Detener** solo queda el último fragmento y la identificación de las voces, que tarda unos 3–10 minutos por hora de sesión según el equipo. La pantalla de grabación muestra hasta qué minuto lleva la transcripción.
+Colloquia transcribe **mientras grabas**, en fragmentos de 30 a 90 segundos que corta en los silencios, y va guardando también el MP3. Al pulsar **Detener** solo queda el último fragmento y la identificación de las voces, que tarda unos 3–10 minutos por hora de sesión según el equipo. La pantalla de grabación muestra qué porcentaje de la grabación está ya transcrito.
 
-En un portátil antiguo sin gráfica dedicada, el modelo Turbo transcribe a una velocidad parecida a la de la conversación. Si el equipo no llega, al terminar transcribe lo que quede pendiente y avisa de que el modelo Small (Ajustes) es casi el doble de rápido, a cambio de algo menos de precisión.
+Al procesar, la pantalla muestra cada etapa (preparación, MP3, transcripción, voces y texto) con su porcentaje, el progreso total y una estimación del tiempo que queda. Si hay que descargar un modelo, también se ve el porcentaje de la descarga.
+
+En un portátil sin gráfica dedicada, el modelo Rápido transcribe mucho más deprisa de lo que se habla, así que al pulsar **Detener** casi todo está listo. Con Turbo o Large v3 en un equipo así, si no da abasto, al terminar transcribe lo que quede pendiente y avisa para que elijas Automático o Rápido.
 
 La transcripción va en un proceso aparte, con prioridad baja para no entorpecer la grabación. Si la app se cierra en mitad de una sesión, al recuperarla aprovecha lo que ya estaba transcrito.
 
-Al terminar, la transcripción y la identificación de voces se hacen en paralelo. Con GPU NVIDIA y el soporte CUDA descargado se usa faster-whisper; con otras GPU (o una NVIDIA sin CUDA) se usa whisper.cpp con Vulkan en Windows y Linux, o Metal en Mac. Si no hay GPU compatible, o whisper.cpp falla, se transcribe con la CPU.
+Al terminar, la transcripción y la identificación de voces se hacen en paralelo. El modelo Rápido y el de pronunciación literal se ejecutan siempre en la CPU con sherpa-onnx. Para Whisper, con GPU NVIDIA y el soporte CUDA descargado se usa faster-whisper; con otras GPU (o una NVIDIA sin CUDA) se usa whisper.cpp con Vulkan en Windows y Linux, o Metal en Mac. Si no hay GPU compatible, o whisper.cpp falla, se transcribe con la CPU.
 
 ## Seguridad de la grabación
 

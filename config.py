@@ -35,7 +35,7 @@ os.makedirs(CONFIG_DIR, exist_ok=True)
 DEFAULTS = {
     "folder": os.path.join(os.path.expanduser("~"), "Documents", APP),
     "device": "",
-    "model": "large-v3-turbo",
+    "model": "auto",
     "language": "es",
     "roles": ["Psicólogo", "Paciente"],
     "keep_wav": False,
@@ -43,6 +43,8 @@ DEFAULTS = {
     "verbatim": True,
     "pause_min": 1.5,
     "mark_doubtful": True,
+    "literal": True,
+    "version": 2,
 }
 
 PAUSES = {"1 segundo": 1.0, "1,5 segundos": 1.5, "2 segundos": 2.0, "3 segundos": 3.0}
@@ -58,10 +60,10 @@ LANGUAGES = {
     "Detectar automáticamente": "auto",
 }
 MODELS = {
-    "Turbo · rápido y preciso (recomendado)": "large-v3-turbo",
-    "Large v3 · máxima precisión, más lento": "large-v3",
-    "Medium · intermedio": "medium",
-    "Small · el más rápido, para portátiles antiguos": "small",
+    "Automático · se adapta a este equipo (recomendado)": "auto",
+    "Rápido · Parakeet, para equipos sin gráfica": "parakeet-v3",
+    "Equilibrado · Whisper Turbo, ideal con gráfica": "large-v3-turbo",
+    "Máxima precisión · Whisper Large v3, lento": "large-v3",
 }
 
 
@@ -69,9 +71,14 @@ def load_config():
     cfg = dict(DEFAULTS)
     try:
         with open(CONFIG_PATH, encoding="utf-8") as f:
-            cfg.update(json.load(f))
+            saved = json.load(f)
     except (OSError, ValueError):
-        pass
+        saved = {}
+    if saved and saved.get("version", 1) < 2:
+        saved["version"] = 2
+        if saved.get("model") in ("large-v3-turbo", "small", "medium"):
+            saved["model"] = "auto"
+    cfg.update(saved)
     return cfg
 
 

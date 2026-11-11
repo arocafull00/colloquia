@@ -61,6 +61,7 @@ class Api:
         self._meta = None
         self._error = ""
         self._banner = ""
+        self._banner_p = None
         self._alerts = []
         self._silent_since = None
         self._processing_started = 0
@@ -84,6 +85,7 @@ class Api:
             },
             "screen": self._screen_payload(),
             "banner": self._banner,
+            "bannerP": self._banner_p,
             "sessions": self._sessions(),
             "alerts": alerts,
             "update": self._update,
@@ -108,10 +110,10 @@ class Api:
             save_config(cfg)
             if cfg["device"] != old["device"] and self._screen != "recording":
                 self._open_mic()
-            if self._meta and self._screen == "done" and (cfg["roles"] != old["roles"] or cfg["pause_min"] != old["pause_min"] or cfg["mark_doubtful"] != old["mark_doubtful"]):
+            if self._meta and self._screen == "done" and any(cfg.get(k) != old.get(k) for k in ("roles", "pause_min", "mark_doubtful", "literal")):
                 pipeline.write_txt(self._session_dir, cfg)
                 self._send({"type": "screen", "screen": self._screen_payload()})
-            if cfg["model"] != old["model"]:
+            if any(cfg.get(k) != old.get(k) for k in ("model", "literal", "language")):
                 self._prepare_models()
             return cfg
 
@@ -326,21 +328,21 @@ class Api:
             traceback.print_exc()
             self._alert(f"No se pudo abrir el micrófono:\n{e}")
 
-    def _set_banner(self, text):
-        self._banner = text
-        self._send({"type": "banner", "text": text})
+    def _set_banner(self, text, p=None):
+        self._banner, self._banner_p = text, p
+        self._send({"type": "banner", "text": text, "p": p})
 
     def _prepare_models(self):
-        model = self._cfg["model"]
+        model, literal = self._cfg["model"], models.wants_literal(self._cfg)
 
         def status(text, p):
-            self._set_banner(text + (f" {p * 100:.0f}%" if p is not None else ""))
+            self._set_banner(text, p)
 
         def work():
-            if models.missing(model):
+            if models.missing(model, literal):
                 status("Preparando modelos (solo la primera vez)…", None)
                 try:
-                    models.ensure(model, status)
+                    models.ensure(model, status, literal=literal)
                     self._set_banner("")
                 except Exception as e:
                     traceback.print_exc()
@@ -381,11 +383,11 @@ class Api:
                 self._awake.stop()
                 self._meta = meta
                 self._show("done")
-                if meta.get("device") == "CPU" and meta.get("lag", 0) > SLOW_LAG and cfg["model"] != "small":
+                if meta.get("device") == "CPU" and meta.get("lag", 0) > SLOW_LAG and cfg["model"] not in ("auto", "parakeet-v3"):
                     self._alert(
                         "Este equipo transcribe más despacio de lo que se habla, así que parte de la sesión se ha "
-                        "transcrito al terminar. Si quieres que esté lista antes, elige el modelo Small en Ajustes "
-                        "(más rápido, algo menos preciso)."
+                        "transcrito al terminar. Para que esté lista antes, elige el modelo Automático o Rápido en "
+                        "Ajustes: en equipos sin gráfica es varias veces más rápido."
                     )
 
         threading.Thread(target=work, daemon=True).start()
