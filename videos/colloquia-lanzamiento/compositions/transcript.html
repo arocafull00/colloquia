@@ -1,0 +1,266 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+  </head>
+  <body>
+    <template>
+      <style>
+        #root {
+          position: absolute;
+          inset: 0;
+          overflow: hidden;
+          font-family: Inter, sans-serif;
+          color: #26212c;
+        }
+        #tr-ground {
+          position: absolute;
+          inset: 0;
+          background: #f4f1ec;
+        }
+        #tr-cam {
+          position: absolute;
+          inset: 0;
+        }
+        #tr-title {
+          position: absolute;
+          left: 120px;
+          top: 92px;
+          margin: 0;
+          font-size: 96px;
+          font-weight: 900;
+          letter-spacing: -0.045em;
+          line-height: 110px;
+        }
+        #tr-title span {
+          display: inline-block;
+          margin-right: 0.22em;
+        }
+        #tr-title .accent {
+          color: #493c55;
+        }
+        #tr-file {
+          position: absolute;
+          left: 1060px;
+          top: 120px;
+          height: 56px;
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          padding: 0 22px 0 18px;
+          border: 2px solid #e4dee5;
+          border-radius: 14px;
+          background: #ffffff;
+          font-size: 28px;
+          font-weight: 500;
+        }
+        #tr-file svg {
+          width: 28px;
+          height: 28px;
+          fill: none;
+          stroke: #776e80;
+          stroke-width: 1.7;
+          stroke-linecap: round;
+          stroke-linejoin: round;
+        }
+        #tr-card {
+          position: absolute;
+          left: 120px;
+          top: 240px;
+          width: 1260px;
+          padding: 8px 0;
+          border: 2px solid #e4dee5;
+          border-radius: 28px;
+          background: #ffffff;
+          box-shadow: 0 40px 80px rgba(38, 33, 44, 0.12);
+        }
+        .tr-turn {
+          position: relative;
+          display: grid;
+          grid-template-columns: 150px minmax(0, 1fr);
+          align-content: center;
+          gap: 2px 0;
+          padding: 0 44px 0 40px;
+          opacity: 0;
+        }
+        #tr-r1, #tr-r4, #tr-r5 {
+          height: 121px;
+        }
+        #tr-r2 {
+          height: 70px;
+        }
+        #tr-r3 {
+          height: 170px;
+        }
+        .tr-turn time {
+          grid-row: 1;
+          padding-top: 4px;
+          font-size: 28px;
+          color: #776e80;
+          font-variant-numeric: tabular-nums;
+        }
+        .tr-turn b {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          font-size: 28px;
+          font-weight: 600;
+        }
+        .tr-turn b::before {
+          content: "";
+          width: 14px;
+          height: 14px;
+          border-radius: 50%;
+          background: var(--c);
+        }
+        .tr-turn p {
+          grid-column: 2;
+          margin: 0;
+          font-size: 34px;
+          line-height: 49px;
+        }
+        #tr-r2 p {
+          grid-row: 1;
+          font-size: 30px;
+          font-style: italic;
+          color: #776e80;
+        }
+        .tr-pause {
+          font-size: 30px;
+          font-style: italic;
+          color: #776e80;
+        }
+        .tr-doubt {
+          text-decoration: underline dotted transparent 3px;
+          text-underline-offset: 8px;
+        }
+        .tr-q {
+          display: inline-block;
+          margin-left: 2px;
+          font-size: 26px;
+          font-weight: 600;
+          color: #f5a524;
+          vertical-align: super;
+          opacity: 0;
+        }
+        .tr-said {
+          display: inline-block;
+          font-size: 32px;
+          font-style: italic;
+          font-weight: 600;
+          color: #d39233;
+          opacity: 0;
+        }
+        .tr-label {
+          position: absolute;
+          left: 1440px;
+          height: 64px;
+          display: flex;
+          align-items: center;
+          padding: 0 28px;
+          border-radius: 32px;
+          background: #493c55;
+          color: #ffffff;
+          font-size: 30px;
+          font-weight: 700;
+          letter-spacing: -0.01em;
+          white-space: nowrap;
+          opacity: 0;
+        }
+        .tr-label::before {
+          content: "";
+          position: absolute;
+          left: -60px;
+          top: 30px;
+          width: 60px;
+          height: 4px;
+          border-radius: 2px;
+          background: #493c55;
+        }
+        #tr-l1 {
+          top: 276px;
+        }
+        #tr-l2 {
+          top: 372px;
+        }
+        #tr-l3 {
+          top: 492px;
+          background: #f5a524;
+          color: #26212c;
+        }
+        #tr-l3::before {
+          background: #f5a524;
+        }
+        #tr-l4 {
+          top: 758px;
+          background: #d39233;
+          color: #26212c;
+        }
+        #tr-l4::before {
+          background: #d39233;
+        }
+        #tr-flood {
+          position: absolute;
+          left: 0;
+          top: 0;
+          width: 1920px;
+          height: 1080px;
+          background: #26212c;
+          z-index: 4;
+        }
+      </style>
+
+      <div id="root" data-composition-id="transcript" data-width="1920" data-height="1080">
+        <div id="tr-ground" class="clip" data-start="0" data-duration="8" data-track-index="0"></div>
+        <div id="tr-stage" class="clip" data-start="0" data-duration="8" data-track-index="1" data-layout-allow-overflow data-layout-allow-overlap>
+          <div id="tr-cam">
+            <h2 id="tr-title"><span>Transcripción</span><span class="accent">literal</span></h2>
+            <div id="tr-file"><svg viewBox="0 0 24 24"><path d="M6.5 3h7l4 4v13.5h-11z" /><path d="M13.5 3v4h4" /></svg>transcripcion.txt</div>
+            <div id="tr-card">
+              <div class="tr-turn" id="tr-r1" style="--c: #493c55"><time>00:00:00</time><b>Psicólogo</b><p>¿Qué hiciste el fin de semana?</p></div>
+              <div class="tr-turn" id="tr-r2"><time>00:00:03</time><p>(silencio 1,7 s)</p></div>
+              <div class="tr-turn" id="tr-r3" style="--c: #d39233"><time>00:00:05</time><b>Paciente</b><p>Eh... <span class="tr-pause">(pausa 1,6 s)</span> yo... yo fui al... al <span class="tr-doubt">Pacue</span><span class="tr-q">?</span>... <span class="tr-doubt">mmm</span><span class="tr-q">?</span>... <span class="tr-pause">(pausa 2,2 s)</span> con mi mamá.</p></div>
+              <div class="tr-turn" id="tr-r4" style="--c: #493c55"><time>00:00:14</time><b>Psicólogo</b><p>¿Y qué viste allí?</p></div>
+              <div class="tr-turn" id="tr-r5" style="--c: #d39233"><time>00:00:16</time><b>Paciente</b><p>Un perro <span class="tr-said">⟨pelo⟩</span> muy grande.</p></div>
+            </div>
+            <div class="tr-label" id="tr-l1">Dos voces separadas</div>
+            <div class="tr-label" id="tr-l2">Silencios medidos</div>
+            <div class="tr-label" id="tr-l3">Palabras dudosas</div>
+            <div class="tr-label" id="tr-l4">Lo que se oye, entre ⟨ ⟩</div>
+          </div>
+          <div id="tr-flood"></div>
+        </div>
+      </div>
+
+      <script>
+        (() => {
+          const tl = gsap.timeline({ paused: true });
+          gsap.set("#tr-flood", { y: 1080 });
+
+          tl.fromTo("#tr-cam", { scale: 1.12, filter: "blur(14px)", opacity: 0 }, { scale: 1, filter: "blur(0px)", opacity: 1, duration: 0.5, ease: "expo.out" }, 0);
+
+          const rowIn = (sel, at) => tl.fromTo(sel, { opacity: 0, x: -24, filter: "blur(8px)" }, { opacity: 1, x: 0, filter: "blur(0px)", duration: 0.3, ease: "expo.out" }, at);
+          const labelIn = (sel, at) => tl.fromTo(sel, { opacity: 0, x: 40, filter: "blur(8px)" }, { opacity: 1, x: 0, filter: "blur(0px)", duration: 0.3, ease: "expo.out" }, at);
+
+          rowIn("#tr-r1", 0.35);
+          labelIn("#tr-l1", 0.85);
+          rowIn("#tr-r2", 1.6);
+          labelIn("#tr-l2", 2.0);
+          rowIn("#tr-r3", 2.7);
+          tl.to(".tr-doubt", { textDecorationColor: "#f5a524", duration: 0.2, ease: "power2.out", stagger: 0.15 }, 3.3);
+          tl.fromTo(".tr-q", { opacity: 0, y: 8 }, { opacity: 1, y: 0, duration: 0.2, ease: "back.out(2)", stagger: 0.15 }, 3.35);
+          labelIn("#tr-l3", 3.6);
+          rowIn("#tr-r4", 4.4);
+          rowIn("#tr-r5", 4.85);
+          tl.fromTo(".tr-said", { opacity: 0, scale: 0.6 }, { opacity: 1, scale: 1, duration: 0.3, ease: "back.out(2)" }, 5.3);
+          labelIn("#tr-l4", 5.5);
+
+          tl.to("#tr-cam", { scale: 1.35, x: -60, y: -130, duration: 0.8, ease: "power2.inOut" }, 6.6);
+          tl.to("#tr-flood", { y: 0, duration: 0.55, ease: "power3.inOut" }, 7.2);
+
+          window.__timelines["transcript"] = tl;
+        })();
+      </script>
+    </template>
+  </body>
+</html>

@@ -1,0 +1,602 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+  </head>
+  <body>
+    <template>
+      <style>
+        #root {
+          position: absolute;
+          inset: 0;
+          overflow: hidden;
+          font-family: Inter, sans-serif;
+          color: #26212c;
+        }
+        #rc-ground {
+          position: absolute;
+          inset: 0;
+          background: #e7dfe8;
+        }
+        #rc-win {
+          position: absolute;
+          left: 120px;
+          top: 70px;
+          width: 1680px;
+          height: 940px;
+          border-radius: 28px;
+          background: #f4f1ec;
+          box-shadow: 0 40px 80px rgba(38, 33, 44, 0.28);
+          overflow: hidden;
+        }
+        #rc-side {
+          position: absolute;
+          left: 0;
+          top: 0;
+          bottom: 0;
+          width: 330px;
+          padding: 36px 20px 22px;
+        }
+        #rc-brand {
+          display: block;
+          width: 232px;
+          height: 62px;
+          margin: 0 0 34px 6px;
+          fill: #493c55;
+        }
+        .rc-nav {
+          display: flex;
+          align-items: center;
+          gap: 18px;
+          height: 62px;
+          padding: 0 16px;
+          border-radius: 14px;
+          font-size: 28px;
+          font-weight: 500;
+        }
+        .rc-nav.on {
+          background: #e7dfe8;
+        }
+        .rc-icon {
+          width: 30px;
+          height: 30px;
+          fill: none;
+          stroke: currentColor;
+          stroke-width: 1.7;
+          stroke-linecap: round;
+          stroke-linejoin: round;
+        }
+        #rc-foot {
+          position: absolute;
+          left: 20px;
+          right: 20px;
+          bottom: 22px;
+          height: 104px;
+          border: 2px solid #e4dee5;
+          border-radius: 20px;
+          background: #faf8f5;
+        }
+        .rc-status {
+          position: absolute;
+          inset: 0;
+          display: flex;
+          align-items: center;
+          gap: 16px;
+          padding: 0 22px;
+          font-size: 28px;
+          font-weight: 600;
+          opacity: 0;
+        }
+        .rc-status i {
+          width: 16px;
+          height: 16px;
+          border-radius: 50%;
+        }
+        #rc-main {
+          position: absolute;
+          left: 330px;
+          top: 14px;
+          right: 14px;
+          bottom: 14px;
+          border: 2px solid #e4dee5;
+          border-radius: 30px;
+          background: #faf8f5;
+          overflow: hidden;
+        }
+        .rc-view {
+          position: absolute;
+          inset: 0;
+          opacity: 0;
+        }
+        #rc-hero {
+          position: absolute;
+          left: 168px;
+          top: 80px;
+          width: 1000px;
+          height: 570px;
+          border-radius: 26px;
+          background: #493c55;
+          color: #ffffff;
+          text-align: center;
+        }
+        #rc-state {
+          position: absolute;
+          left: 380px;
+          top: 50px;
+          width: 240px;
+          height: 54px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 14px;
+          border-radius: 99px;
+          background: rgba(255, 255, 255, 0.1);
+          font-size: 28px;
+          font-weight: 600;
+        }
+        #rc-state i {
+          width: 16px;
+          height: 16px;
+          border-radius: 50%;
+          background: #e5484d;
+          box-shadow: 0 0 0 6px rgba(229, 72, 77, 0.25);
+        }
+        #rc-timer {
+          position: absolute;
+          left: 0;
+          right: 0;
+          top: 140px;
+          font-size: 156px;
+          font-weight: 300;
+          letter-spacing: -0.03em;
+          line-height: 1;
+          font-variant-numeric: tabular-nums;
+        }
+        #rc-session {
+          position: absolute;
+          left: 0;
+          right: 0;
+          top: 316px;
+          font-size: 28px;
+          color: #cfc5d7;
+        }
+        #rc-wave {
+          position: absolute;
+          left: 80px;
+          right: 80px;
+          top: 390px;
+          height: 130px;
+        }
+        .rc-bar {
+          position: absolute;
+          top: 0;
+          width: 10px;
+          height: 130px;
+          border-radius: 5px;
+          background: rgba(255, 255, 255, 0.85);
+        }
+        .rc-btn {
+          position: absolute;
+          top: 680px;
+          width: 490px;
+          height: 96px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 14px;
+          border: 2px solid #d3cad6;
+          border-radius: 18px;
+          background: #ffffff;
+          font-size: 30px;
+          font-weight: 600;
+        }
+        #rc-pause {
+          left: 168px;
+        }
+        #rc-stop {
+          left: 678px;
+          border-color: #e5484d;
+          background: #e5484d;
+          color: #ffffff;
+        }
+        #rc-stop b {
+          width: 26px;
+          height: 26px;
+          border-radius: 6px;
+          background: #ffffff;
+        }
+        #rc-note {
+          position: absolute;
+          left: 0;
+          right: 0;
+          top: 810px;
+          text-align: center;
+          font-size: 28px;
+          color: #776e80;
+        }
+        .rc-h1 {
+          position: absolute;
+          left: 90px;
+          top: 60px;
+          margin: 0;
+          font-size: 56px;
+          font-weight: 700;
+          letter-spacing: -0.02em;
+        }
+        .rc-lead {
+          position: absolute;
+          left: 90px;
+          top: 146px;
+          margin: 0;
+          font-size: 28px;
+          color: #776e80;
+        }
+        #rc-total {
+          position: absolute;
+          left: 90px;
+          top: 210px;
+          display: flex;
+          align-items: baseline;
+          gap: 24px;
+        }
+        #rc-pct {
+          font-size: 96px;
+          font-weight: 600;
+          letter-spacing: -0.03em;
+          font-variant-numeric: tabular-nums;
+          line-height: 1;
+        }
+        #rc-eta {
+          font-size: 28px;
+          color: #776e80;
+        }
+        #rc-steps {
+          position: absolute;
+          left: 90px;
+          top: 340px;
+          width: 1100px;
+          border: 2px solid #e4dee5;
+          border-radius: 22px;
+          background: #ffffff;
+        }
+        .rc-step {
+          position: relative;
+          display: flex;
+          align-items: center;
+          gap: 24px;
+          height: 82px;
+          padding: 0 30px;
+          font-size: 28px;
+          font-weight: 500;
+          color: #776e80;
+        }
+        .rc-step + .rc-step {
+          border-top: 2px solid #e4dee5;
+        }
+        .rc-step-icon {
+          position: relative;
+          width: 40px;
+          height: 40px;
+          border-radius: 50%;
+          border: 3px solid #d3cad6;
+        }
+        .rc-step-fill {
+          position: absolute;
+          inset: -3px;
+          border-radius: 50%;
+          background: #493c55;
+          opacity: 0;
+        }
+        .rc-step-fill svg {
+          position: absolute;
+          left: 8px;
+          top: 8px;
+          width: 24px;
+          height: 24px;
+          fill: none;
+          stroke: #ffffff;
+          stroke-width: 2.6;
+          stroke-linecap: round;
+          stroke-linejoin: round;
+        }
+        .rc-step-name {
+          position: relative;
+        }
+        #rc-progress {
+          position: absolute;
+          left: 90px;
+          top: 790px;
+          width: 1100px;
+          height: 14px;
+          border-radius: 99px;
+          background: #e7dfe8;
+          overflow: hidden;
+        }
+        #rc-progress i {
+          position: absolute;
+          inset: 0;
+          border-radius: 99px;
+          background: #493c55;
+          transform-origin: 0 50%;
+        }
+        #rc-badge {
+          position: absolute;
+          left: 90px;
+          top: 62px;
+          width: 64px;
+          height: 64px;
+          border-radius: 50%;
+          background: #493c55;
+        }
+        #rc-badge svg {
+          position: absolute;
+          left: 15px;
+          top: 15px;
+          width: 34px;
+          height: 34px;
+          fill: none;
+          stroke: #ffffff;
+          stroke-width: 2.4;
+          stroke-linecap: round;
+          stroke-linejoin: round;
+        }
+        #rc-done-h1 {
+          left: 176px;
+        }
+        #rc-files {
+          position: absolute;
+          left: 90px;
+          top: 206px;
+          display: flex;
+          gap: 16px;
+        }
+        .rc-file {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          height: 56px;
+          padding: 0 22px 0 18px;
+          border: 2px solid #e4dee5;
+          border-radius: 14px;
+          background: #ffffff;
+          font-size: 28px;
+          font-weight: 500;
+        }
+        .rc-file .rc-icon {
+          color: #776e80;
+        }
+        #rc-ctitle {
+          position: absolute;
+          left: 92px;
+          top: 312px;
+          margin: 0;
+          font-size: 28px;
+          font-weight: 600;
+          letter-spacing: 0.06em;
+          text-transform: uppercase;
+          color: #776e80;
+        }
+        #rc-voices {
+          position: absolute;
+          left: 90px;
+          top: 360px;
+          width: 1100px;
+          border: 2px solid #e4dee5;
+          border-radius: 22px;
+          background: #ffffff;
+        }
+        .rc-voice {
+          display: flex;
+          gap: 26px;
+          padding: 24px 32px;
+        }
+        .rc-voice + .rc-voice {
+          border-top: 2px solid #e4dee5;
+        }
+        .rc-voice > i {
+          width: 7px;
+          border-radius: 4px;
+        }
+        .rc-voice b {
+          display: block;
+          font-size: 30px;
+          font-weight: 600;
+        }
+        .rc-voice p {
+          margin: 4px 0 0;
+          font-size: 30px;
+          font-style: italic;
+          color: #776e80;
+        }
+        .rc-act {
+          position: absolute;
+          top: 650px;
+          height: 76px;
+          display: flex;
+          align-items: center;
+          gap: 14px;
+          padding: 0 30px;
+          border: 2px solid #d3cad6;
+          border-radius: 16px;
+          background: #ffffff;
+          font-size: 28px;
+          font-weight: 600;
+        }
+        #rc-swap {
+          left: 90px;
+        }
+        #rc-view-tr {
+          right: 132px;
+          border-color: #493c55;
+          background: #493c55;
+          color: #ffffff;
+        }
+        #rc-cursor {
+          position: absolute;
+          left: 0;
+          top: 0;
+          width: 52px;
+          height: 72px;
+          z-index: 5;
+        }
+      </style>
+
+
+      <div id="root" data-composition-id="record" data-width="1920" data-height="1080">
+        <div id="rc-ground" class="clip" data-start="0" data-duration="8" data-track-index="0"></div>
+        <div id="rc-stage" class="clip" data-start="0" data-duration="8" data-track-index="1" data-layout-allow-overflow data-layout-allow-overlap>
+          <svg width="0" height="0" style="position: absolute">
+        <symbol id="rc-i-mic" viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3" /><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21M8.5 21h7" /></symbol>
+        <symbol id="rc-i-list" viewBox="0 0 24 24"><rect x="3.5" y="4" width="17" height="16" rx="2.5" /><path d="M7.5 9h9M7.5 12.5h9M7.5 16h5" /></symbol>
+        <symbol id="rc-i-sliders" viewBox="0 0 24 24"><path d="M4 6h9M17 6h3M4 12h3M11 12h9M4 18h11M19 18h1" /><circle cx="15" cy="6" r="2" /><circle cx="9" cy="12" r="2" /><circle cx="17" cy="18" r="2" /></symbol>
+        <symbol id="rc-i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5" /></symbol>
+        <symbol id="rc-i-pause" viewBox="0 0 24 24"><path d="M9 5.5v13M15 5.5v13" /></symbol>
+        <symbol id="rc-i-music" viewBox="0 0 24 24"><path d="M9 18V5.5l10-2V16" /><circle cx="6.5" cy="18" r="2.5" /><circle cx="16.5" cy="16" r="2.5" /></symbol>
+        <symbol id="rc-i-file" viewBox="0 0 24 24"><path d="M6.5 3h7l4 4v13.5h-11z" /><path d="M13.5 3v4h4" /></symbol>
+        <symbol id="rc-i-swap" viewBox="0 0 24 24"><path d="M7 4 3.5 7.5 7 11M3.5 7.5H17M17 13l3.5 3.5L17 20M20.5 16.5H7" /></symbol>
+      </svg>
+          <div id="rc-win">
+            <div id="rc-side">
+              <svg id="rc-brand" viewBox="0 0 960 256" aria-label="Colloquia"><g transform="translate(0 16) scale(.78)"><path d="M40 48 H108 V116 H72 C72 145 83 164 108 180 V212 C61 193 40 164 40 116 Z" /><g transform="translate(256 256) scale(-1 -1)"><path d="M40 48 H108 V116 H72 C72 145 83 164 108 180 V212 C61 193 40 164 40 116 Z" /></g></g><g transform="translate(226 53) scale(1.65)"><path d="M59 15 C52 5 42 0 29 0 C10 0 0 16 0 38 C0 60 10 76 29 76 C42 76 53 70 60 60 L52 53 C46 62 39 65 30 65 C17 65 11 55 11 38 C11 21 17 11 30 11 C39 11 46 15 51 22 Z" fill-rule="evenodd" /><g transform="translate(72 0)"><path d="M0 49 a23 28 0 1 0 46 0 a23 28 0 1 0 -46 0 Z M10 49 a13 18 0 1 0 26 0 a13 18 0 1 0 -26 0 Z" fill-rule="evenodd" /></g><path d="M130 0 H140 V60 Q140 66 146 66 H149 V76 H145 Q130 76 130 60 Z" fill-rule="evenodd" /><path d="M161 0 H171 V60 Q171 66 177 66 H180 V76 H176 Q161 76 161 60 Z" fill-rule="evenodd" /><g transform="translate(192 0)"><path d="M0 49 a23 28 0 1 0 46 0 a23 28 0 1 0 -46 0 Z M10 49 a13 18 0 1 0 26 0 a13 18 0 1 0 -26 0 Z" fill-rule="evenodd" /></g><g transform="translate(250 0)"><path d="M0 49 a23 28 0 1 0 46 0 a23 28 0 1 0 -46 0 Z M10 49 a13 18 0 1 0 26 0 a13 18 0 1 0 -26 0 Z" fill-rule="evenodd" /><rect x="36" y="23" width="10" height="73" /></g><path d="M308 23 H318 V54 Q318 67 331 67 Q344 67 344 54 V23 H354 V76 H345 V69 Q339 78 329 78 Q308 78 308 55 Z" fill-rule="evenodd" /><rect x="366" y="23" width="10" height="53" /><rect x="366" y="3" width="10" height="10" rx="3" /><g transform="translate(390 0)"><path d="M0 49 a23 28 0 1 0 46 0 a23 28 0 1 0 -46 0 Z M10 49 a13 18 0 1 0 26 0 a13 18 0 1 0 -26 0 Z" fill-rule="evenodd" /><rect x="36" y="23" width="10" height="53" /></g></g></svg>
+              <div class="rc-nav on"><svg class="rc-icon"><use href="#rc-i-mic" /></svg>Grabar</div>
+              <div class="rc-nav"><svg class="rc-icon"><use href="#rc-i-list" /></svg>Sesiones</div>
+              <div class="rc-nav"><svg class="rc-icon"><use href="#rc-i-sliders" /></svg>Ajustes</div>
+              <div id="rc-foot">
+                <div class="rc-status" id="rc-st-rec"><i style="background: #e5484d"></i>Grabando</div>
+                <div class="rc-status" id="rc-st-proc"><i style="background: #f5a524"></i>Procesando</div>
+                <div class="rc-status" id="rc-st-ok"><i style="background: #2fb36d"></i>Listo</div>
+              </div>
+            </div>
+            <div id="rc-main">
+              <div class="rc-view" id="rc-v-rec">
+                <div id="rc-hero">
+                  <div id="rc-state"><i></i>Grabando</div>
+                  <div id="rc-timer">00:12:41</div>
+                  <div id="rc-session">Sesión 14 · ejemplo</div>
+                  <div id="rc-wave"></div>
+                </div>
+                <div class="rc-btn" id="rc-pause"><svg class="rc-icon"><use href="#rc-i-pause" /></svg>Pausar</div>
+                <div class="rc-btn" id="rc-stop"><b></b>Detener</div>
+                <p id="rc-note">El audio se guarda en disco continuamente.</p>
+              </div>
+
+              <div class="rc-view" id="rc-v-proc">
+                <h1 class="rc-h1">Procesando la sesión</h1>
+                <p class="rc-lead">Todo se procesa en este equipo.</p>
+                <div id="rc-total"><span id="rc-pct">0 %</span><span id="rc-eta">Unos minutos</span></div>
+                <div id="rc-steps">
+                  <div class="rc-step"><div class="rc-step-icon"><div class="rc-step-fill"><svg><use href="#rc-i-check" /></svg></div></div><span class="rc-step-name">Preparando la transcripción</span></div>
+                  <div class="rc-step"><div class="rc-step-icon"><div class="rc-step-fill"><svg><use href="#rc-i-check" /></svg></div></div><span class="rc-step-name">Guardando MP3</span></div>
+                  <div class="rc-step"><div class="rc-step-icon"><div class="rc-step-fill"><svg><use href="#rc-i-check" /></svg></div></div><span class="rc-step-name">Transcribiendo</span></div>
+                  <div class="rc-step"><div class="rc-step-icon"><div class="rc-step-fill"><svg><use href="#rc-i-check" /></svg></div></div><span class="rc-step-name">Identificando voces</span></div>
+                  <div class="rc-step"><div class="rc-step-icon"><div class="rc-step-fill"><svg><use href="#rc-i-check" /></svg></div></div><span class="rc-step-name">Generando texto</span></div>
+                </div>
+                <div id="rc-progress"><i></i></div>
+              </div>
+
+              <div class="rc-view" id="rc-v-done">
+                <div id="rc-badge"><svg><use href="#rc-i-check" /></svg></div>
+                <h1 class="rc-h1" id="rc-done-h1">Sesión guardada</h1>
+                <p class="rc-lead" style="top: 150px">Sesión 14 · 00:52:14 · 186 intervenciones</p>
+                <div id="rc-files">
+                  <div class="rc-file"><svg class="rc-icon"><use href="#rc-i-music" /></svg>sesion.mp3</div>
+                  <div class="rc-file"><svg class="rc-icon"><use href="#rc-i-file" /></svg>transcripcion.txt</div>
+                </div>
+                <p id="rc-ctitle">¿Están bien asignadas las voces?</p>
+                <div id="rc-voices">
+                  <div class="rc-voice"><i style="background: #493c55"></i><div><b>Psicólogo</b><p>«¿Qué hiciste el fin de semana?»</p></div></div>
+                  <div class="rc-voice"><i style="background: #d39233"></i><div><b>Paciente</b><p>«Yo fui al parque con mi mamá.»</p></div></div>
+                </div>
+                <div class="rc-act" id="rc-swap"><svg class="rc-icon"><use href="#rc-i-swap" /></svg>Intercambiar voces</div>
+                <div class="rc-act" id="rc-view-tr"><svg class="rc-icon"><use href="#rc-i-file" /></svg>Ver transcripción</div>
+              </div>
+            </div>
+          </div>
+          <svg id="rc-cursor" viewBox="0 0 26 36">
+            <path d="M2 2 L2 29 L9 22.5 L13.5 33 L18 31 L13.6 20.8 L23 20.8 Z" fill="#26212c" stroke="#ffffff" stroke-width="2" stroke-linejoin="round" />
+          </svg>
+        </div>
+      </div>
+
+      <script>
+        (() => {
+          const box = document.getElementById("rc-wave");
+          const N = 48;
+          for (let i = 0; i < N; i++) {
+            const b = document.createElement("div");
+            b.className = "rc-bar";
+            b.style.left = i * (830 / (N - 1)) + "px";
+            box.appendChild(b);
+          }
+          const bars = box.querySelectorAll(".rc-bar");
+          const noise = (i, k) => {
+            const s = Math.sin(i * 12.9898 + k * 78.233) * 43758.5453;
+            return s - Math.floor(s);
+          };
+          const pad = (n) => String(n).padStart(2, "0");
+          const clock = (s) => `${pad(Math.floor(s / 3600))}:${pad(Math.floor((s % 3600) / 60))}:${pad(Math.floor(s % 60))}`;
+
+          const tl = gsap.timeline({ paused: true });
+          gsap.set("#rc-v-rec, #rc-st-rec", { opacity: 1 });
+          gsap.set(bars, { scaleY: 0.08 });
+          gsap.set("#rc-progress i", { scaleX: 0 });
+          gsap.set("#rc-cursor", { x: 1960, y: 1120 });
+
+          tl.fromTo("#rc-win", { scale: 0.86, y: 60, filter: "blur(10px)" }, { scale: 1, y: 0, filter: "blur(0px)", duration: 0.55, ease: "expo.out" }, 0);
+
+          for (let k = 0; k < 22; k++) {
+            bars.forEach((b, i) => {
+              const centre = 1 - Math.abs(i - (N - 1) / 2) / N;
+              tl.to(b, { scaleY: 0.08 + 0.92 * centre * (0.15 + 0.85 * noise(i, k)), duration: 0.1, ease: "sine.inOut" }, 0.05 + k * 0.1);
+            });
+          }
+          tl.to(bars, { scaleY: 0.08, duration: 0.15, ease: "power2.out" }, 2.25);
+
+          const timerEl = document.getElementById("rc-timer");
+          const t = { s: 761 };
+          tl.to(t, { s: 3134, duration: 2.1, ease: "power1.in", onUpdate: () => (timerEl.textContent = clock(t.s)) }, 0.05);
+
+          tl.to("#rc-cursor", { x: 1360, y: 800, duration: 0.6, ease: "power3.out" }, 1.3);
+          tl.to("#rc-stop", { scale: 0.97, duration: 0.06 }, 2.15);
+          tl.to("#rc-cursor", { scale: 0.86, transformOrigin: "0 0", duration: 0.06 }, 2.15);
+          tl.to("#rc-stop", { scale: 1, duration: 0.2, ease: "expo.out" }, 2.22);
+          tl.to("#rc-cursor", { scale: 1, duration: 0.12 }, 2.22);
+          tl.to("#rc-cursor", { x: 1700, y: 960, duration: 0.5, ease: "power2.inOut" }, 2.5);
+
+          tl.to("#rc-v-rec", { opacity: 0, y: -40, filter: "blur(12px)", duration: 0.2, ease: "power3.in" }, 2.3);
+          tl.to("#rc-st-rec", { opacity: 0, duration: 0.1 }, 2.4);
+          tl.to("#rc-st-proc", { opacity: 1, duration: 0.15 }, 2.45);
+          tl.fromTo("#rc-v-proc", { opacity: 0, y: 40, filter: "blur(12px)" }, { opacity: 1, y: 0, filter: "blur(0px)", duration: 0.3, ease: "expo.out" }, 2.45);
+
+          const pctEl = document.getElementById("rc-pct");
+          const p = { v: 0 };
+          tl.to(p, { v: 100, duration: 2.1, ease: "power1.inOut", onUpdate: () => (pctEl.textContent = Math.round(p.v) + " %") }, 2.6);
+          tl.to("#rc-progress i", { scaleX: 1, duration: 2.1, ease: "power1.inOut" }, 2.6);
+          document.querySelectorAll(".rc-step").forEach((s, i) => {
+            const at = 2.8 + i * 0.45;
+            tl.to(s, { color: "#26212c", duration: 0.12 }, at - 0.3);
+            tl.fromTo(s.querySelector(".rc-step-fill"), { opacity: 0, scale: 0.4 }, { opacity: 1, scale: 1, duration: 0.25, ease: "back.out(2)" }, at);
+          });
+
+          tl.to("#rc-v-proc", { opacity: 0, y: -40, filter: "blur(12px)", duration: 0.2, ease: "power3.in" }, 4.95);
+          tl.to("#rc-st-proc", { opacity: 0, duration: 0.1 }, 5.05);
+          tl.to("#rc-st-ok", { opacity: 1, duration: 0.15 }, 5.1);
+          tl.fromTo("#rc-v-done", { opacity: 0, y: 40, filter: "blur(12px)" }, { opacity: 1, y: 0, filter: "blur(0px)", duration: 0.3, ease: "expo.out" }, 5.1);
+          tl.fromTo("#rc-badge", { scale: 0 }, { scale: 1, duration: 0.35, ease: "back.out(2.2)" }, 5.15);
+          tl.fromTo(".rc-voice", { opacity: 0, x: -30 }, { opacity: 1, x: 0, duration: 0.3, stagger: 0.18, ease: "expo.out" }, 5.4);
+
+          tl.to("#rc-cursor", { x: 1470, y: 750, duration: 0.6, ease: "power3.inOut" }, 6.2);
+          tl.to("#rc-view-tr", { scale: 0.96, duration: 0.06 }, 6.95);
+          tl.to("#rc-cursor", { scale: 0.86, duration: 0.06 }, 6.95);
+          tl.to("#rc-view-tr", { scale: 1, duration: 0.2, ease: "expo.out" }, 7.02);
+          tl.to("#rc-cursor", { scale: 1, duration: 0.12 }, 7.02);
+
+          tl.to("#rc-cursor", { opacity: 0, duration: 0.15 }, 7.25);
+          tl.to("#rc-win", { scale: 1.5, x: -300, y: -150, filter: "blur(16px)", opacity: 0, duration: 0.5, ease: "power3.in" }, 7.35);
+
+          window.__timelines["record"] = tl;
+        })();
+      </script>
+    </template>
+  </body>
+</html>

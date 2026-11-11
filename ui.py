@@ -175,6 +175,18 @@ class Api:
                 self._meta = pipeline.swap_roles(self._session_dir, self._cfg)
                 self._send({"type": "screen", "screen": self._screen_payload()})
 
+    def rename(self, path, name):
+        name = " ".join((name or "").split())[:80]
+        with self._lock:
+            try:
+                meta = pipeline.rename(path, self._cfg, name)
+            except (OSError, ValueError, TypeError, KeyError):
+                return None
+            if path == self._session_dir and self._meta:
+                self._meta = meta
+        self._send({"type": "sessions", "sessions": self._sessions()})
+        return name
+
     def reset(self):
         with self._lock:
             if self._screen in ("done", "error"):

@@ -685,6 +685,15 @@ def swap_roles(session_dir, cfg):
     return meta
 
 
+def rename(session_dir, cfg, name):
+    meta = read_meta(session_dir)
+    meta["name"] = name
+    write_meta(session_dir, meta)
+    if meta.get("state") == "done":
+        write_txt(session_dir, cfg)
+    return meta
+
+
 def process(session_dir, cfg, status, live=None):
     from faster_whisper import decode_audio
 

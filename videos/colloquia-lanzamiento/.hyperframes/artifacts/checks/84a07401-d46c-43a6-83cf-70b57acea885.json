@@ -1,0 +1,301 @@
+{
+  "ok": true,
+  "strict": false,
+  "browserSkipped": false,
+  "lint": {
+    "ok": true,
+    "errorCount": 0,
+    "warningCount": 0,
+    "infoCount": 0,
+    "findings": [],
+    "filesScanned": 6
+  },
+  "runtime": {
+    "ok": true,
+    "errorCount": 0,
+    "warningCount": 0,
+    "infoCount": 0,
+    "findings": []
+  },
+  "layout": {
+    "ok": true,
+    "errorCount": 0,
+    "warningCount": 0,
+    "infoCount": 0,
+    "findings": [],
+    "duration": 30,
+    "samples": [
+      1.667,
+      5,
+      8.333,
+      11.667,
+      15,
+      18.333,
+      21.667,
+      25,
+      28.333
+    ],
+    "transitionSamples": [],
+    "transitionSamplesDropped": 0,
+    "tolerance": 2,
+    "totalIssueCount": 0,
+    "truncated": false
+  },
+  "motion": {
+    "ok": true,
+    "errorCount": 0,
+    "warningCount": 0,
+    "infoCount": 0,
+    "findings": [],
+    "enabled": false,
+    "samples": 0
+  },
+  "contrast": {
+    "ok": true,
+    "errorCount": 0,
+    "warningCount": 1,
+    "infoCount": 0,
+    "findings": [
+      {
+        "code": "contrast_aa_failure",
+        "severity": "warning",
+        "message": "Contrast is 2.81:1; WCAG AA requires 3:1.",
+        "text": "consulta",
+        "fg": "rgb(110,100,119)",
+        "bg": "rgb(38,33,44)",
+        "ratio": 2.81,
+        "requiredRatio": 3,
+        "suggestedColor": "rgb(115,105,123)",
+        "large": true,
+        "selector": "div > div:nth-of-type(4) > div > div:nth-of-type(2) > h2:nth-of-type(2) > span:nth-of-type(3)",
+        "dataAttributes": {},
+        "sourceFile": "compositions/privacy.html",
+        "bbox": {
+          "x": 590.21875,
+          "y": 300,
+          "width": 683.140625,
+          "height": 180
+        },
+        "time": 21.667,
+        "times": [
+          21.667
+        ]
+      }
+    ],
+    "enabled": true,
+    "samples": [
+      1.667,
+      8.333,
+      15,
+      21.667,
+      28.333
+    ],
+    "checked": 41,
+    "passed": 40
+  },
+  "craft": {
+    "ok": true,
+    "errorCount": 0,
+    "warningCount": 3,
+    "infoCount": 0,
+    "findings": [
+      {
+        "code": "line_unread",
+        "severity": "warning",
+        "message": "\"Tus sesiones, transcritas en tu ordenador\" (6 words) is on screen 1.30 s (±0.01 s), under its 1.72 s floor: hold it about 0.5 s + 0.3 s a word (2.30 s here) before it leaves or changes; see references/motion.md.",
+        "text": "Tus sesiones, transcritas en tu ordenador",
+        "selector": "#hk-tag",
+        "dataAttributes": {},
+        "sourceFile": "compositions/hook.html",
+        "bbox": {
+          "x": 339.92,
+          "y": 640,
+          "width": 411.44,
+          "height": 77
+        },
+        "time": 3.641,
+        "words": 6,
+        "seconds": 1.297,
+        "floorSeconds": 1.725
+      },
+      {
+        "code": "text_below_floor",
+        "severity": "warning",
+        "message": "Type floor is 28 px (2.6% of the 1080 px short side, what a phone can read) and 8 text elements stay under it for 0.5 s or more, the smallest \"Grabando\" at 22 px: set reading text to at least 28 px, or put data-layout-ignore on text that is texture rather than reading; see references/look.md.",
+        "text": "Grabando",
+        "selector": "#rc-st-rec",
+        "dataAttributes": {},
+        "sourceFile": "compositions/record.html",
+        "bbox": {
+          "x": 302.96,
+          "y": 927.23,
+          "width": 106.52,
+          "height": 26.66
+        },
+        "time": 5,
+        "times": [
+          5,
+          5,
+          5,
+          7.5,
+          10.25,
+          10.25,
+          10.25,
+          10.25
+        ],
+        "fontPx": 22.36,
+        "floorPx": 28,
+        "seconds": 2.5,
+        "elements": [
+          {
+            "selector": "#rc-st-rec",
+            "text": "Grabando",
+            "fontPx": 22.36,
+            "time": 5,
+            "seconds": 2.5
+          },
+          {
+            "selector": "#rc-state",
+            "text": "Grabando",
+            "fontPx": 22.36,
+            "time": 5,
+            "seconds": 2.5
+          },
+          {
+            "selector": "#rc-note",
+            "text": "El audio se guarda en disco continuamente.",
+            "fontPx": 22.36,
+            "time": 5,
+            "seconds": 2.5
+          },
+          {
+            "selector": "#rc-st-proc",
+            "text": "Procesando",
+            "fontPx": 26,
+            "time": 7.5,
+            "seconds": 2.625
+          },
+          {
+            "selector": "#rc-st-ok",
+            "text": "Listo",
+            "fontPx": 26,
+            "time": 10.25,
+            "seconds": 2.5
+          },
+          {
+            "selector": "#rc-files > div:nth-of-type(1)",
+            "text": "sesion.mp3",
+            "fontPx": 26,
+            "time": 10.25,
+            "seconds": 2.5
+          },
+          {
+            "selector": "#rc-files > div:nth-of-type(2)",
+            "text": "transcripcion.txt",
+            "fontPx": 26,
+            "time": 10.25,
+            "seconds": 2.5
+          },
+          {
+            "selector": "#rc-ctitle",
+            "text": "¿Están bien asignadas las voces?",
+            "fontPx": 26,
+            "time": 10.25,
+            "seconds": 2.5
+          }
+        ]
+      },
+      {
+        "code": "text_below_floor",
+        "severity": "warning",
+        "message": "Type floor is 28 px (2.6% of the 1080 px short side, what a phone can read) and 6 text elements stay under it for 0.5 s or more, the smallest \"transcripcion.txt\" at 26 px: set reading text to at least 28 px, or put data-layout-ignore on text that is texture rather than reading; see references/look.md.",
+        "text": "transcripcion.txt",
+        "selector": "#tr-file",
+        "dataAttributes": {},
+        "sourceFile": "compositions/transcript.html",
+        "bbox": {
+          "x": 1063.03,
+          "y": 128.4,
+          "width": 210.71,
+          "height": 31.93
+        },
+        "time": 13.125,
+        "times": [
+          13.125,
+          13.5,
+          14.75,
+          15.75,
+          17.5,
+          18
+        ],
+        "fontPx": 26,
+        "floorPx": 28,
+        "seconds": 6.875,
+        "elements": [
+          {
+            "selector": "#tr-file",
+            "text": "transcripcion.txt",
+            "fontPx": 26,
+            "time": 13.125,
+            "seconds": 6.875
+          },
+          {
+            "selector": "#tr-r1 > time:nth-of-type(1)",
+            "text": "00:00:00",
+            "fontPx": 26,
+            "time": 13.5,
+            "seconds": 6.5
+          },
+          {
+            "selector": "#tr-r2 > time:nth-of-type(1)",
+            "text": "00:00:03",
+            "fontPx": 26,
+            "time": 14.75,
+            "seconds": 5.25
+          },
+          {
+            "selector": "#tr-r3 > time:nth-of-type(1)",
+            "text": "00:00:05",
+            "fontPx": 26,
+            "time": 15.75,
+            "seconds": 4.25
+          },
+          {
+            "selector": "#tr-r4 > time:nth-of-type(1)",
+            "text": "00:00:14",
+            "fontPx": 26,
+            "time": 17.5,
+            "seconds": 2.5
+          },
+          {
+            "selector": "#tr-r5 > time:nth-of-type(1)",
+            "text": "00:00:16",
+            "fontPx": 26,
+            "time": 18,
+            "seconds": 2
+          }
+        ]
+      }
+    ],
+    "enabled": true,
+    "step": 0.125,
+    "samples": 240
+  },
+  "audio": {
+    "ok": true,
+    "errorCount": 0,
+    "warningCount": 0,
+    "infoCount": 0,
+    "findings": []
+  },
+  "hdr": {
+    "autoPromotion": null,
+    "inspection": "available"
+  },
+  "snapshots": {
+    "enabled": false,
+    "files": [],
+    "times": [],
+    "findingFiles": []
+  }
+}
