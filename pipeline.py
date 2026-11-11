@@ -523,9 +523,9 @@ def entries(meta, cfg):
     for ti, t in enumerate(meta["turns"]):
         for start, d in silences.get((ti, 0), []):
             if d >= pause_min:
-                out.append({"start": start, "role": None, "text": f"(silencio {secs(d)})"})
+                out.append({"start": start, "end": start + d, "role": None, "text": f"(silencio {secs(d)})"})
         pauses = {wi: v for (i, wi), v in silences.items() if i == ti}
-        out.append({"start": t["start"], "role": role_of(meta, t["speaker"]), "text": render(t, pauses, pause_min, doubtful)})
+        out.append({"start": t["start"], "end": t["end"], "role": role_of(meta, t["speaker"]), "text": render(t, pauses, pause_min, doubtful)})
     return out
 
 

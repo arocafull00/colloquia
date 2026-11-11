@@ -51,6 +51,7 @@ Name: "{autodesktop}\Colloquia"; Filename: "{app}\Colloquia.exe"; Tasks: desktop
 
 [Run]
 Filename: "{app}\Colloquia.exe"; Description: "{cm:LaunchProgram,Colloquia}"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\Colloquia.exe"; Flags: nowait; Check: RelaunchAfterUpdate
 
 [Code]
 var
@@ -96,6 +97,11 @@ begin
     False, False);
   GpuPage.Add('Descargar el soporte para GPU NVIDIA (recomendado)');
   GpuPage.Values[0] := GetPreviousData('GpuSupport', '1') = '1';
+end;
+
+function RelaunchAfterUpdate: Boolean;
+begin
+  Result := WizardSilent and (ExpandConstant('{param:RELAUNCH|0}') = '1');
 end;
 
 function ShouldSkipPage(PageID: Integer): Boolean;

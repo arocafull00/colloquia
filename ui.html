@@ -146,6 +146,20 @@ h1 { margin: 0 0 6px; font-size: 26px; font-weight: 600; letter-spacing: -.02em;
 .notice div { flex: 1; min-width: 0; }
 .notice b { display: block; font-weight: 600; }
 .notice small { display: block; color: var(--muted); font-size: 13px; overflow-wrap: anywhere; }
+.notice.update { border-color: var(--line); background: var(--panel); }
+.notice.update .icon { color: var(--accent); }
+.btn.raised {
+  background: linear-gradient(color-mix(in srgb, var(--accent) 80%, #fff), var(--accent));
+  border-color: transparent;
+  color: var(--accent-text);
+  box-shadow:
+    inset 0 1px 0 #ffffff59,
+    inset 0 -2px 0 #0003,
+    0 1px 2px #0006,
+    0 8px 24px -6px color-mix(in srgb, var(--accent) 60%, transparent);
+}
+.btn.raised:hover:not(:disabled) { background: linear-gradient(color-mix(in srgb, var(--accent) 80%, #fff), var(--accent)); opacity: .92; }
+.btn.raised:active { translate: 0 1px; box-shadow: inset 0 2px 4px #0004; }
 
 .card { border: 1px solid var(--line); border-radius: 16px; background: var(--field); max-width: 720px; }
 .card.wide { max-width: none; }
@@ -294,6 +308,17 @@ h1 { margin: 0 0 6px; font-size: 26px; font-weight: 600; letter-spacing: -.02em;
 .turn .doubt { text-decoration: underline dotted var(--orange) 2px; text-underline-offset: 4px; }
 .turn .doubt::after { content: "?"; margin-left: 1px; color: var(--orange); font: 600 11px var(--sans); vertical-align: super; }
 .row.clickable { cursor: pointer; }
+.player { position: sticky; top: 12px; z-index: 2; display: flex; align-items: center; gap: 14px; max-width: 760px; margin-top: 22px; padding: 10px 18px 10px 10px; border: 1px solid var(--line); border-radius: 14px; background: var(--panel); box-shadow: var(--shadow); }
+.player[hidden] { display: none; }
+.player .btn { width: 38px; height: 38px; padding: 0; border-radius: 50%; }
+.player input { flex: 1; min-width: 0; margin: 0; accent-color: var(--accent); cursor: pointer; }
+.player time { color: var(--muted); font-size: 12.5px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.player + .transcript { margin-top: 14px; }
+.transcript.audio .turn { cursor: pointer; transition: background .12s; }
+.transcript.audio .turn:hover { background: var(--hover); }
+.transcript.audio .turn:hover time { color: var(--text); }
+.transcript .turn.playing { background: var(--active); }
+.transcript .turn.playing time { color: var(--text); font-weight: 600; }
 
 .toast {
   position: fixed; left: 50%; bottom: 26px; transform: translate(-50%, 12px); opacity: 0; pointer-events: none;
@@ -373,6 +398,12 @@ h1 { margin: 0 0 6px; font-size: 26px; font-weight: 600; letter-spacing: -.02em;
               <input class="hero-field" id="sessionName" placeholder="Nombre de la sesión (opcional)" autocomplete="off" spellcheck="false">
               <button class="rec-btn" type="submit"><i></i>Grabar</button>
             </form>
+          </div>
+
+          <div class="notice update" id="updateBox" hidden>
+            <svg class="icon"><use href="#i-retry"/></svg>
+            <div><b id="updateTitle"></b><small id="updateText"></small></div>
+            <button class="btn raised" id="updateBtn" hidden></button>
           </div>
 
           <div class="notice" id="recoverBox" hidden>
@@ -477,6 +508,11 @@ h1 { margin: 0 0 6px; font-size: 26px; font-weight: 600; letter-spacing: -.02em;
         <button class="btn" id="trCopy"><svg class="icon"><use href="#i-copy"/></svg>Copiar</button>
         <button class="btn" id="trOpen"><svg class="icon"><use href="#i-folder"/></svg>Abrir carpeta</button>
       </div>
+    </div>
+    <div class="player" id="trPlayer" hidden>
+      <button class="btn raised" id="trPlay" title="Reproducir (espacio)"><svg class="icon solid"><use href="#i-play"/></svg></button>
+      <input type="range" id="trSeek" min="0" max="1" step="0.1" value="0">
+      <time id="trTime">00:00 / 00:00</time>
     </div>
     <div class="transcript" id="trBody"></div>
   </section>
@@ -591,6 +627,24 @@ function handle(msg) {
     renderStatus();
   } else if (msg.type === "alert") alertBox(msg.text);
   else if (msg.type === "confirmQuit") confirmQuit(msg.screen);
+  else if (msg.type === "update") renderUpdate(msg.update);
+}
+
+function renderUpdate(u) {
+  $("#updateBox").hidden = !u;
+  if (!u) return;
+  const btn = $("#updateBtn");
+  $("#updateTitle").textContent = `Nueva versión de Colloquia: ${u.version}`;
+  btn.hidden = !u.ready;
+  if (u.manual) {
+    $("#updateText").textContent = "Descárgala desde la página de Colloquia.";
+    btn.textContent = "Descargar";
+  } else if (!u.ready) {
+    $("#updateText").textContent = `Descargando en segundo plano… ${Math.round((u.progress || 0) * 100)}%`;
+  } else {
+    $("#updateText").textContent = "Lista para instalar. Se instalará sola al cerrar Colloquia, o ahora si lo prefieres.";
+    btn.textContent = "Reiniciar y actualizar";
+  }
 }
 
 function el(tag, attrs = {}, ...children) {
@@ -651,6 +705,7 @@ const busy = () => ["recording", "processing"].includes(state.screen.name);
 function go(page) {
   if (page === "settings" && busy()) return;
   state.page = page;
+  if (page !== "transcript") player.audio.pause();
   $$(".page").forEach(p => p.classList.toggle("on", p.id === "page-" + page));
   $$("nav button").forEach(b => b.classList.toggle("on", b.dataset.page === (page === "transcript" ? state.back : page)));
   $("main").scrollTop = 0;
@@ -864,12 +919,82 @@ async function showTranscript(path) {
   info.push(clock(t.duration), `${t.entries.filter(e => e.role !== null).length} intervenciones`);
   $("#trInfo").textContent = info.join(" · ");
   const colors = ["var(--voice1)", "var(--voice2)"];
-  $("#trBody").replaceChildren(...t.entries.map(e => e.role === null
-    ? el("div", { class: "turn silence" }, el("time", {}, clock(e.start)), el("p", {}, e.text))
-    : el("div", { class: "turn", style: `--c:${colors[e.role]}` }, el("time", {}, clock(e.start)), el("b", {}, t.roles[e.role]), el("p", {}, ...richText(e.text)))));
+  player.load(t.audio, t.duration);
+  const title = t.audio ? "Escuchar esta parte" : "";
+  player.turns = t.entries.map(e => [e, e.role === null
+    ? el("div", { class: "turn silence", title, onclick: () => player.playPart(e) }, el("time", {}, clock(e.start)), el("p", {}, e.text))
+    : el("div", { class: "turn", title, style: `--c:${colors[e.role]}`, onclick: () => player.playPart(e) }, el("time", {}, clock(e.start)), el("b", {}, t.roles[e.role]), el("p", {}, ...richText(e.text)))]);
+  $("#trBody").classList.toggle("audio", !!t.audio);
+  $("#trBody").replaceChildren(...player.turns.map(([, n]) => n));
   if (!t.entries.length) $("#trBody").append(el("div", { class: "empty" }, "No se ha detectado habla en esta grabación."));
   go("transcript");
 }
+
+const player = {
+  audio: new Audio(),
+  stopAt: null,
+  dragging: false,
+  turns: [],
+  current: null,
+  duration: 0,
+  load(src, duration) {
+    this.audio.pause();
+    this.stopAt = null;
+    this.duration = duration || 0;
+    $("#trPlayer").hidden = !src;
+    if (src && this.audio.src !== src) {
+      this.audio.preload = "metadata";
+      this.audio.src = src;
+    } else if (!src) this.audio.removeAttribute("src");
+    if (src) this.audio.currentTime = 0;
+    this.render();
+  },
+  seek(t) {
+    if (this.audio.readyState) this.audio.currentTime = t;
+    else this.audio.addEventListener("loadedmetadata", () => this.audio.currentTime = t, { once: true });
+  },
+  playPart(e) {
+    if (!this.audio.src || !getSelection().isCollapsed) return;
+    this.stopAt = e.end + 0.3;
+    this.seek(e.start);
+    this.audio.play();
+  },
+  toggle() {
+    if (!this.audio.src) return;
+    if (this.audio.paused) {
+      this.stopAt = null;
+      this.audio.play();
+    } else this.audio.pause();
+  },
+  render() {
+    const a = this.audio, total = a.duration || this.duration, now = a.currentTime || 0;
+    $("#trPlay").replaceChildren(a.paused ? icon("play") : icon("pause"));
+    if (a.paused) $("#trPlay svg").classList.add("solid");
+    $("#trPlay").title = a.paused ? "Reproducir (espacio)" : "Pausar (espacio)";
+    $("#trTime").textContent = `${clock(now)} / ${clock(total)}`;
+    const seek = $("#trSeek");
+    seek.max = total || 1;
+    if (!this.dragging) seek.value = now;
+    const found = a.paused && now === 0 ? null : this.turns.find(([e]) => e.start <= now && now < e.end) || null;
+    const node = found && found[1];
+    if (node !== this.current) {
+      this.current?.classList.remove("playing");
+      node?.classList.add("playing");
+      this.current = node;
+    }
+  },
+};
+player.audio.addEventListener("timeupdate", () => {
+  if (player.stopAt !== null && player.audio.currentTime >= player.stopAt) {
+    player.stopAt = null;
+    player.audio.pause();
+  }
+  player.render();
+});
+["play", "pause", "ended", "loadedmetadata", "seeked"].forEach(ev => player.audio.addEventListener(ev, () => player.render()));
+player.audio.addEventListener("error", () => {
+  if (player.audio.getAttribute("src")) toast("No se puede reproducir el audio");
+});
 
 function richText(text) {
   return text.split(/(\(pausa [^)]*\)|\S+?\[\?\])/).filter(Boolean).map(part => {
@@ -1034,6 +1159,14 @@ $("#swapBtn").addEventListener("click", () => {
 $("#retryBtn").addEventListener("click", () => pywebview.api.retry());
 $("#trBack").addEventListener("click", () => go(state.back));
 $("#trOpen").addEventListener("click", () => pywebview.api.open(state.transcript.path));
+$("#trPlay").addEventListener("click", () => player.toggle());
+$("#trSeek").addEventListener("pointerdown", () => player.dragging = true);
+$("#trSeek").addEventListener("input", () => $("#trTime").textContent = `${clock(Number($("#trSeek").value))} / ${clock(player.audio.duration || player.duration)}`);
+$("#trSeek").addEventListener("change", () => {
+  player.dragging = false;
+  player.stopAt = null;
+  player.seek(Number($("#trSeek").value));
+});
 $("#trCopy").addEventListener("click", () => {
   copyText(state.transcript.text);
   toast("Transcripción copiada");
@@ -1072,6 +1205,10 @@ $$("input[data-role]").forEach(input => {
 
 document.addEventListener("keydown", e => {
   if (e.key === "Escape" && $("#modal").classList.contains("on")) $("#modalButtons button").click();
+  if (e.code === "Space" && state.page === "transcript" && !$("#modal").classList.contains("on") && !e.target.closest("input, select, textarea, button")) {
+    e.preventDefault();
+    player.toggle();
+  }
 });
 
 window.addEventListener("pywebviewready", async () => {
@@ -1087,7 +1224,10 @@ window.addEventListener("pywebviewready", async () => {
   colloquia.ready = true;
   colloquia.queue.splice(0).forEach(handle);
   init.alerts.forEach(alertBox);
+  renderUpdate(init.update);
 });
+
+$("#updateBtn").addEventListener("click", () => pywebview.api.update_now());
 
 setInterval(() => $("#greeting").textContent = greeting(), 60000);
 </script>

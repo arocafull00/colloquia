@@ -9,6 +9,11 @@ ICON = os.path.join(SPECPATH, "colloquia.png")
 ICO = os.path.join(SPECPATH, "colloquia.ico")
 ICNS = os.path.join(SPECPATH, "colloquia.icns")
 
+VERSION_FILE = os.path.join(workpath, "version.txt")
+os.makedirs(workpath, exist_ok=True)
+with open(VERSION_FILE, "w", encoding="utf-8") as f:
+    f.write(VERSION)
+
 binaries = collect_dynamic_libs("ctranslate2") + collect_dynamic_libs("sherpa_onnx")
 if os.environ.get("WHISPER_CLI"):
     binaries.append((os.environ["WHISPER_CLI"], "whisper-cpp"))
@@ -17,7 +22,7 @@ a = Analysis(
     [os.path.join(ROOT, "colloquia.py")],
     pathex=[ROOT],
     binaries=binaries,
-    datas=collect_data_files("faster_whisper") + [(os.path.join(ROOT, "ui.html"), "."), (ICON, "packaging"), (ICO, "packaging")],
+    datas=collect_data_files("faster_whisper") + [(os.path.join(ROOT, "ui.html"), "."), (VERSION_FILE, "."), (ICON, "packaging"), (ICO, "packaging")],
     runtime_hooks=[os.path.join(SPECPATH, "pyi_rth_portaudio.py")] if sys.platform.startswith("linux") else [],
     excludes=["tkinter", "matplotlib", "pandas", "scipy", "torch", "IPython", "pytest"],
 )

@@ -6,11 +6,14 @@ import sys
 import threading
 import time
 import traceback
+import webbrowser
 
 import webview
 
 import models
 import pipeline
+import player
+import updater
 from config import APP, LANGUAGES, MAC, MODELS, PAUSES, WIN, load_config, save_config
 from platform_utils import KeepAwake, open_folder, prepare_webview
 from recorder import PCM, Recorder, input_devices, read_meta
@@ -22,6 +25,7 @@ DEFAULT_ROLES = ("Psicólogo", "Paciente")
 SILENCE_LEVEL = 0.003
 SILENCE_SECONDS = 30
 SLOW_LAG = 300
+UPDATE_INTERVAL = 6 * 3600
 
 
 def dark_mode():
@@ -61,6 +65,9 @@ class Api:
         self._silent_since = None
         self._processing_started = 0
         self._quitting = False
+        self._update = None
+        self._update_path = None
+        self._installed = False
 
     def init(self):
         self._ready = True
@@ -79,6 +86,7 @@ class Api:
             "banner": self._banner,
             "sessions": self._sessions(),
             "alerts": alerts,
+            "update": self._update,
         }
 
     def choose_folder(self):
@@ -183,6 +191,7 @@ class Api:
                 text = f.read()
         except OSError:
             text = ""
+        mp3 = os.path.join(path, pipeline.MP3)
         return {
             "path": path,
             "folder": os.path.basename(path),
@@ -192,6 +201,7 @@ class Api:
             "roles": self._cfg["roles"],
             "entries": pipeline.entries(meta, self._cfg),
             "text": text,
+            "audio": player.url_for(mp3) if os.path.isfile(mp3) else None,
         }
 
     def open(self, path=None):
@@ -202,6 +212,52 @@ class Api:
     def quit(self):
         self._shutdown()
         self._window.destroy()
+
+    def update_now(self):
+        with self._lock:
+            if not self._update or self._screen not in ("home", "done", "error"):
+                return
+            if not self._update_path:
+                webbrowser.open(self._update["page"])
+                return
+            self._shutdown()
+            self._install_update(True)
+        self._window.destroy()
+
+    def _install_update(self, relaunch):
+        if self._update_path and not self._installed:
+            self._installed = True
+            try:
+                updater.install(self._update_path, relaunch)
+            except Exception:
+                traceback.print_exc()
+
+    def _update_loop(self):
+        while not self._update_path:
+            try:
+                info = updater.check()
+                if info:
+                    self._update = {"version": info["version"], "page": info["page"], "ready": False, "manual": not info["asset"]}
+                    if info["asset"]:
+                        self._send({"type": "update", "update": {**self._update, "progress": 0}})
+                        shown = [0]
+
+                        def progress(p):
+                            if int(p * 100) != shown[0]:
+                                shown[0] = int(p * 100)
+                                self._send({"type": "update", "update": {**self._update, "progress": p}})
+
+                        self._update_path = updater.download(info, progress)
+                    self._update["ready"] = True
+                    self._send({"type": "update", "update": self._update})
+                    if self._update_path:
+                        return
+            except Exception:
+                traceback.print_exc()
+                if self._update:
+                    self._update.update(ready=True, manual=True)
+                    self._send({"type": "update", "update": self._update})
+            time.sleep(UPDATE_INTERVAL)
 
     def _send(self, msg):
         if self._ready and self._window:
@@ -384,6 +440,7 @@ def main():
         import ctypes
 
         ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("io.github.arocafull00.colloquia")
+    player.start()
     api = Api()
     cfg = api._cfg
     dark = cfg.get("appearance") == "dark" or (cfg.get("appearance", "system") == "system" and dark_mode())
@@ -403,8 +460,10 @@ def main():
     api._open_mic()
     api._prepare_models()
     threading.Thread(target=api._tick_loop, daemon=True).start()
+    threading.Thread(target=api._update_loop, daemon=True).start()
     icon = os.path.join(HERE, "packaging", "colloquia.ico" if WIN else "colloquia.png")
     webview.start(icon=icon if os.path.exists(icon) else None)
+    api._install_update(False)
     os._exit(0)
 
 

@@ -51,6 +51,23 @@ class KeepAwake:
             self.proc = None
 
 
+def total_ram():
+    if WIN:
+
+        class MemoryStatus(ctypes.Structure):
+            _fields_ = [("length", ctypes.c_ulong), ("load", ctypes.c_ulong), ("total", ctypes.c_ulonglong)] + [
+                (f"f{i}", ctypes.c_ulonglong) for i in range(6)
+            ]
+
+        m = MemoryStatus(length=ctypes.sizeof(MemoryStatus))
+        ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(m))
+        return m.total
+    try:
+        return os.sysconf("SC_PAGE_SIZE") * os.sysconf("SC_PHYS_PAGES")
+    except (ValueError, OSError, AttributeError):
+        return 0
+
+
 def open_folder(path):
     if WIN:
         os.startfile(path)

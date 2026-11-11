@@ -2,6 +2,7 @@ import glob
 import json
 import os
 import re
+import shutil
 import ssl
 import sys
 import tarfile
@@ -11,7 +12,8 @@ import zipfile
 
 import truststore
 
-from config import CUDA_DIR, HERE, MAC, MODELS_DIR, WIN
+from config import CONFIG_DIR, CUDA_DIR, HERE, MAC, MODELS_DIR, WIN
+from platform_utils import total_ram
 
 RELEASES = "https://github.com/k2-fsa/sherpa-onnx/releases/download"
 SEGMENTATION_URL = f"{RELEASES}/speaker-segmentation-models/sherpa-onnx-pyannote-segmentation-3-0.tar.bz2"
@@ -22,6 +24,18 @@ CUDA_PACKAGES = ["nvidia-cublas-cu12", "nvidia-cudnn-cu12", "nvidia-cuda-nvrtc-c
 PACKAGES = getattr(sys, "_MEIPASS", os.path.join(sys.prefix, "Lib", "site-packages"))
 GGML_URL = "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-{}.bin"
 GGML = {"large-v3-turbo": "large-v3-turbo-q5_0", "large-v3": "large-v3-q5_0", "medium": "medium-q5_0", "small": "small-q5_1"}
+SHERPA_URL = f"{RELEASES}/asr-models/{{}}.tar.bz2"
+SHERPA = {
+    "parakeet-v3": ("sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8", "encoder.int8.onnx"),
+    "literal": ("sherpa-onnx-omnilingual-asr-1600-languages-300M-ctc-int8-2025-11-12", "model.int8.onnx"),
+}
+WHISPER_FILES = re.compile(r"^(config\.json|preprocessor_config\.json|model\.bin|tokenizer\.json|vocabulary\..*)$")
+HF = "https://huggingface.co"
+AUTO_PATH = os.path.join(CONFIG_DIR, "modelo-automatico.txt")
+FAST = "parakeet-v3"
+BALANCED = "large-v3-turbo"
+STRONG_RAM = 12 << 30
+STRONG_CPUS = 8
 
 
 def segmentation_path():
@@ -33,9 +47,9 @@ def embedding_path():
 
 
 def whisper_path(name):
-    local = os.path.join(LOCAL_DIR, f"faster-whisper-{name}")
-    if os.path.exists(os.path.join(local, "model.bin")):
-        return local
+    local = _find(f"faster-whisper-{name}", "model.bin")
+    if local:
+        return os.path.dirname(local)
     from faster_whisper import download_model
 
     try:
@@ -52,15 +66,57 @@ def _find(*parts):
     return None
 
 
-def missing(model_name):
-    return [
-        label
-        for label, ok in (
-            ("voces", segmentation_path() and embedding_path()),
-            ("transcripción", ggml_path(model_name) if uses_whisper_cpp() else whisper_path(model_name)),
-        )
-        if not ok
-    ]
+def sherpa_path(name):
+    folder, file = SHERPA[name]
+    found = _find(folder, file)
+    return os.path.dirname(found) if found else None
+
+
+def is_sherpa(name):
+    return name in SHERPA
+
+
+def resolve(name):
+    if name != "auto":
+        return name
+    try:
+        with open(AUTO_PATH, encoding="utf-8") as f:
+            saved = f.read().strip()
+    except OSError:
+        saved = ""
+    return saved or guess()
+
+
+def guess():
+    if (WIN and (cuda_ready() or needs_cuda())) or uses_whisper_cpp():
+        return BALANCED
+    return BALANCED if total_ram() >= STRONG_RAM and (os.cpu_count() or 1) >= STRONG_CPUS else FAST
+
+
+def remember(name):
+    with open(AUTO_PATH, "w", encoding="utf-8") as f:
+        f.write(name)
+
+
+def wants_literal(cfg):
+    return cfg.get("literal", True) and cfg.get("language") == "es"
+
+
+def transcriber_path(name, cpp=None):
+    if is_sherpa(name):
+        return sherpa_path(name)
+    if uses_whisper_cpp() if cpp is None else cpp:
+        return ggml_path(name)
+    return whisper_path(name)
+
+
+def missing(model_name, literal=False):
+    checks = (
+        ("voces", segmentation_path() and embedding_path()),
+        ("transcripción", transcriber_path(resolve(model_name))),
+        ("pronunciación literal", sherpa_path("literal") if literal else True),
+    )
+    return [label for label, ok in checks if not ok]
 
 
 def cuda_ready():
@@ -167,35 +223,69 @@ def _download(url, dest, progress):
     os.replace(tmp, dest)
 
 
-def ensure(model_name, status, cpp=None):
+def _fetch_tar(url, progress):
+    archive = os.path.join(MODELS_DIR, f".{os.path.basename(url)}.{os.getpid()}")
+    tmp = os.path.join(MODELS_DIR, f".extract-{os.getpid()}")
+    _download(url, archive, lambda p: progress(p * 0.85))
+    size = os.path.getsize(archive) or 1
+    shutil.rmtree(tmp, ignore_errors=True)
+    with open(archive, "rb") as raw, tarfile.open(fileobj=raw, mode="r:bz2") as t:
+        for member in t:
+            t.extract(member, tmp, filter="data")
+            progress(0.85 + 0.15 * raw.tell() / size)
+    for entry in os.listdir(tmp):
+        dest = os.path.join(MODELS_DIR, entry)
+        shutil.rmtree(dest, ignore_errors=True)
+        os.replace(os.path.join(tmp, entry), dest)
+    shutil.rmtree(tmp, ignore_errors=True)
+    os.remove(archive)
+
+
+def _fetch_whisper(name, progress):
+    from faster_whisper.utils import _MODELS
+
+    repo = _MODELS.get(name, name)
+    with _open(f"{HF}/api/models/{repo}?blobs=true") as r:
+        siblings = json.load(r)["siblings"]
+    files = [(s["rfilename"], s.get("size") or 0) for s in siblings if WHISPER_FILES.match(s["rfilename"])]
+    total = sum(size for _, size in files) or 1
+    dest = os.path.join(MODELS_DIR, f"faster-whisper-{name}")
+    tmp = dest + ".partial"
+    os.makedirs(tmp, exist_ok=True)
+    done = 0
+    for file, size in files:
+        _download(f"{HF}/{repo}/resolve/main/{file}", os.path.join(tmp, file), lambda p: progress((done + p * size) / total))
+        done += size
+    shutil.rmtree(dest, ignore_errors=True)
+    os.replace(tmp, dest)
+
+
+def ensure(model_name, status, cpp=None, literal=False):
     with LOCK:
-        _ensure(model_name, status, uses_whisper_cpp() if cpp is None else cpp)
+        name = resolve(model_name)
+        _ensure(name, status, uses_whisper_cpp() if cpp is None else cpp, literal)
+        return name
 
 
-def _ensure(model_name, status, cpp):
+def _ensure(name, status, cpp, literal):
     os.makedirs(MODELS_DIR, exist_ok=True)
+    steps = []
     if not segmentation_path():
-        archive = os.path.join(MODELS_DIR, f"segmentation.{os.getpid()}.tar.bz2")
-        _download(SEGMENTATION_URL, archive, lambda p: status("Descargando modelo de voces (1/3)…", p))
-        with tarfile.open(archive) as t:
-            t.extractall(MODELS_DIR, filter="data")
-        os.remove(archive)
+        steps.append(("el modelo de voces", lambda p: _fetch_tar(SEGMENTATION_URL, p)))
     if not embedding_path():
-        _download(
-            EMBEDDING_URL,
-            os.path.join(MODELS_DIR, os.path.basename(EMBEDDING_URL)),
-            lambda p: status("Descargando modelo de voces (2/3)…", p),
-        )
-    if cpp and not ggml_path(model_name):
-        file = GGML.get(model_name, model_name)
-        _download(
-            GGML_URL.format(file),
-            os.path.join(MODELS_DIR, f"ggml-{file}.bin"),
-            lambda p: status(f"Descargando modelo de transcripción {model_name} (3/3)…", p),
-        )
-    if not cpp and not whisper_path(model_name):
-        status(f"Descargando modelo de transcripción {model_name} (3/3). Puede tardar varios minutos…", None)
-        from faster_whisper import download_model
-
-        download_model(model_name)
+        steps.append(("el modelo de voces", lambda p: _download(EMBEDDING_URL, os.path.join(MODELS_DIR, os.path.basename(EMBEDDING_URL)), p)))
+    if is_sherpa(name):
+        if not sherpa_path(name):
+            steps.append(("el modelo de transcripción", lambda p: _fetch_tar(SHERPA_URL.format(SHERPA[name][0]), p)))
+    elif cpp:
+        if not ggml_path(name):
+            file = GGML.get(name, name)
+            steps.append(("el modelo de transcripción", lambda p: _download(GGML_URL.format(file), os.path.join(MODELS_DIR, f"ggml-{file}.bin"), p)))
+    elif not whisper_path(name):
+        steps.append(("el modelo de transcripción", lambda p: _fetch_whisper(name, p)))
+    if literal and not sherpa_path("literal"):
+        steps.append(("el modelo de pronunciación literal", lambda p: _fetch_tar(SHERPA_URL.format(SHERPA["literal"][0]), p)))
+    for i, (label, run) in enumerate(steps, 1):
+        status(f"Descargando {label} ({i}/{len(steps)})…", 0)
+        run(lambda p: status(f"Descargando {label} ({i}/{len(steps)})…", p))
     os.environ["HF_HUB_OFFLINE"] = "1"
