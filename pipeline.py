@@ -48,6 +48,12 @@ MIN_SILENCE = 0.8
 CHUNK_MIN = 30
 CHUNK_MAX = 90
 CUT_GAP = 0.5
+VOICE_WIN = 1.0
+VOICE_HOP = 0.25
+VOICE_MIN = 0.5
+VOICE_FIT = 1500
+MIN_RUN = 0.4
+SNAP_MAX = 0.6
 VERBATIM_HINT = "Eh... mmm, pues... yo, yo quería, eh... el pe... el perro. Mmm, no, no sé. Ah, vale. Este... o sea, eh..."
 MAIN_SHARE = 0.7
 SLOW = 0.8
@@ -371,26 +377,81 @@ class Transcription:
             self.proc.terminate()
 
 
-def diarize(audio, progress):
+def speech_regions(audio):
+    from faster_whisper.vad import VadOptions, get_speech_timestamps
+
+    opts = VadOptions(threshold=0.35, min_silence_duration_ms=250, speech_pad_ms=80)
+    return [(c["start"] / RATE, c["end"] / RATE) for c in get_speech_timestamps(audio, opts)]
+
+
+def window_centers(regions):
+    out = []
+    for a, b in regions:
+        n = max(1, round((b - a) / VOICE_HOP))
+        step = (b - a) / n
+        out.extend((a + step * (i + 0.5), a, b) for i in range(n))
+    return out
+
+
+def voice_embeddings(audio, centers, progress):
     import sherpa_onnx as so
 
-    config = so.OfflineSpeakerDiarizationConfig(
-        segmentation=so.OfflineSpeakerSegmentationModelConfig(
-            pyannote=so.OfflineSpeakerSegmentationPyannoteModelConfig(model=models.segmentation_path()),
-            num_threads=THREADS,
-        ),
-        embedding=so.SpeakerEmbeddingExtractorConfig(model=models.embedding_path(), num_threads=THREADS),
-        clustering=so.FastClusteringConfig(num_clusters=2),
-        min_duration_on=0.3,
-        min_duration_off=0.5,
-    )
+    ext = so.SpeakerEmbeddingExtractor(so.SpeakerEmbeddingExtractorConfig(model=models.embedding_path(), num_threads=THREADS))
+    out = []
+    for i, (c, a, b) in enumerate(centers):
+        lo, hi = max(a, c - VOICE_WIN / 2), min(b, c + VOICE_WIN / 2)
+        if hi - lo < VOICE_MIN:
+            lo, hi = max(0.0, c - VOICE_MIN / 2), c + VOICE_MIN / 2
+        stream = ext.create_stream()
+        stream.accept_waveform(RATE, audio[int(lo * RATE) : int(hi * RATE)])
+        stream.input_finished()
+        out.append(ext.compute(stream))
+        if i % 20 == 0:
+            progress(0.1 + 0.85 * i / len(centers))
+    e = np.array(out, np.float32)
+    e -= e.mean(0)
+    return e / np.maximum(np.linalg.norm(e, axis=1, keepdims=True), 1e-9)
 
-    def callback(done, total):
-        progress(done / total if total else 0)
-        return 0
 
-    result = so.OfflineSpeakerDiarization(config).process(audio, callback=callback).sort_by_start_time()
-    return [(s.start, s.end, s.speaker) for s in result]
+def split_two(e, keep=0.2):
+    sim = e @ e.T
+    n = len(sim)
+    k = min(n - 1, max(2, int(keep * n)))
+    idx = np.argpartition(-sim, k, axis=1)[:, :k]
+    rows = np.arange(n)[:, None]
+    a = np.zeros_like(sim)
+    a[rows, idx] = sim[rows, idx]
+    a = np.clip(np.maximum(a, a.T), 0, None)
+    d = 1 / np.sqrt(np.maximum(a.sum(1), 1e-9))
+    lap = np.eye(n, dtype=np.float32) - d[:, None] * a * d[None, :]
+    return (np.linalg.eigh(lap)[1][:, 1] > 0).astype(int)
+
+
+def diarize(audio, progress):
+    centers = window_centers(speech_regions(audio))
+    progress(0.1)
+    if len(centers) < 4:
+        return [(a, b, 0) for _, a, b in centers]
+    e = voice_embeddings(audio, centers, progress)
+    fit = np.linspace(0, len(e) - 1, min(len(e), VOICE_FIT)).astype(int)
+    labels = split_two(e[fit])
+    if labels.min() == labels.max():
+        return [(a, b, 0) for _, a, b in centers]
+    centroids = np.stack([e[fit][labels == k].mean(0) for k in (0, 1)])
+    score = e @ centroids[1] - e @ centroids[0]
+    smooth = score.copy()
+    for i in range(1, len(centers) - 1):
+        if centers[i - 1][1] == centers[i][1] == centers[i + 1][1]:
+            smooth[i] = (score[i - 1] + 2 * score[i] + score[i + 1]) / 4
+    spans = []
+    for (c, a, b), v in zip(centers, smooth):
+        lo, hi, spk = max(a, c - VOICE_HOP / 2), min(b, c + VOICE_HOP / 2), int(v > 0)
+        if spans and spans[-1][2] == spk and lo - spans[-1][1] < 0.3:
+            spans[-1][1] = hi
+        else:
+            spans.append([lo, hi, spk])
+    progress(1.0)
+    return [tuple(sp) for sp in spans]
 
 
 def diarize_child(wav_path, queue):
@@ -495,19 +556,32 @@ def assign_speakers(words, spans):
             if overlap > best_overlap or (best_overlap == 0 and overlap <= 0 and dist < best_dist):
                 best, best_overlap, best_dist = spk, max(overlap, 0.0), dist
         labels.append(best)
-    for _ in range(2):
-        runs, i = [], 0
-        while i < len(labels):
-            j = i
-            while j < len(labels) and labels[j] == labels[i]:
-                j += 1
-            runs.append((i, j))
-            i = j
-        for k in range(1, len(runs) - 1):
-            a, b = runs[k]
-            prev, nxt = labels[runs[k - 1][0]], labels[runs[k + 1][0]]
-            if prev == nxt and (b - a <= 2 or words[b - 1][1] - words[a][0] < 0.6):
-                labels[a:b] = [prev] * (b - a)
+    runs, i = [], 0
+    while i < len(labels):
+        j = i
+        while j < len(labels) and labels[j] == labels[i]:
+            j += 1
+        runs.append((i, j))
+        i = j
+    for k in range(1, len(runs) - 1):
+        a, b = runs[k]
+        prev, nxt = labels[runs[k - 1][0]], labels[runs[k + 1][0]]
+        if prev == nxt and words[b - 1][1] - words[a][0] < MIN_RUN:
+            labels[a:b] = [prev] * (b - a)
+    return snap_to_punctuation(words, labels)
+
+
+def snap_to_punctuation(words, labels):
+    def strong(i):
+        return 0 <= i < len(words) and words[i][2].rstrip().endswith((".", "?", "!", "…"))
+
+    for b in range(1, len(labels)):
+        if labels[b] == labels[b - 1] or strong(b - 1):
+            continue
+        if strong(b - 2) and labels[max(b - 2, 0)] == labels[b - 1] and words[b - 1][1] - words[b - 1][0] < SNAP_MAX:
+            labels[b - 1] = labels[b]
+        elif strong(b) and (b + 1 >= len(labels) or labels[b + 1] == labels[b]) and words[b][1] - words[b][0] < SNAP_MAX:
+            labels[b] = labels[b - 1]
     return labels
 
 

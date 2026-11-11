@@ -39,7 +39,8 @@ El segundo modelo también se equivoca, sobre todo con habla rápida o con ruido
 
 ## Identificación de las voces
 
-- Se detectan automáticamente dos voces.
+- Se detectan automáticamente dos voces, también en interrupciones cortas («Sí, siempre, siempre») dentro de la intervención del otro.
+- Para ello, Colloquia saca una huella de voz cada cuarto de segundo (con TitaNet, de NVIDIA), las agrupa en dos voces y ajusta los cambios de turno a los signos de puntuación cercanos.
 - La de quien habla primero se asigna al psicólogo.
 - Al terminar, Colloquia muestra una frase de cada voz y un botón **Intercambiar** por si lo asignó al revés.
 - Los nombres de los roles se cambian en Ajustes.
@@ -161,7 +162,7 @@ Necesitas Python 3.10 o superior.
 La primera vez se descargan los modelos en la carpeta de configuración de Colloquia (en `models/`):
 - el modelo de transcripción: unos 640 MB el Rápido (Parakeet, desde GitHub) o 1,6 GB el Turbo (desde Hugging Face);
 - el de pronunciación literal, unos 350 MB, si el idioma es español;
-- los de voces, unos 35 MB, desde GitHub.
+- el de voces (TitaNet), unos 40 MB, desde GitHub.
 
 Para instalar en un equipo sin internet, copia los modelos en una carpeta `models/` junto a la aplicación: junto a `Colloquia.exe`, `Colloquia.app` o el `.AppImage` en las versiones instaladas, o junto a `colloquia.py` si usas el código fuente.
 
@@ -170,8 +171,7 @@ models/
   sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8/   (encoder, decoder, joiner, tokens.txt)
   sherpa-onnx-omnilingual-asr-1600-languages-300M-ctc-int8-2025-11-12/   (model.int8.onnx, tokens.txt)
   faster-whisper-large-v3-turbo/   (model.bin, config.json, tokenizer.json…; solo para Turbo)
-  sherpa-onnx-pyannote-segmentation-3-0/model.onnx
-  3dspeaker_speech_campplus_sv_zh_en_16k-common_advanced.onnx
+  nemo_en_titanet_small.onnx
 ```
 
 ## Modelos

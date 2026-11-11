@@ -16,8 +16,7 @@ from config import CONFIG_DIR, CUDA_DIR, HERE, MAC, MODELS_DIR, WIN
 from platform_utils import total_ram
 
 RELEASES = "https://github.com/k2-fsa/sherpa-onnx/releases/download"
-SEGMENTATION_URL = f"{RELEASES}/speaker-segmentation-models/sherpa-onnx-pyannote-segmentation-3-0.tar.bz2"
-EMBEDDING_URL = f"{RELEASES}/speaker-recongition-models/3dspeaker_speech_campplus_sv_zh_en_16k-common_advanced.onnx"
+EMBEDDING_URL = f"{RELEASES}/speaker-recongition-models/nemo_en_titanet_small.onnx"
 LOCAL_DIR = os.path.join(HERE, "models")
 LOCK = threading.Lock()
 CUDA_PACKAGES = ["nvidia-cublas-cu12", "nvidia-cudnn-cu12", "nvidia-cuda-nvrtc-cu12"]
@@ -36,10 +35,6 @@ FAST = "parakeet-v3"
 BALANCED = "large-v3-turbo"
 STRONG_RAM = 12 << 30
 STRONG_CPUS = 8
-
-
-def segmentation_path():
-    return _find("sherpa-onnx-pyannote-segmentation-3-0", "model.onnx")
 
 
 def embedding_path():
@@ -112,7 +107,7 @@ def transcriber_path(name, cpp=None):
 
 def missing(model_name, literal=False):
     checks = (
-        ("voces", segmentation_path() and embedding_path()),
+        ("voces", embedding_path()),
         ("transcripción", transcriber_path(resolve(model_name))),
         ("pronunciación literal", sherpa_path("literal") if literal else True),
     )
@@ -270,8 +265,6 @@ def ensure(model_name, status, cpp=None, literal=False, transcriber=True):
 def _ensure(name, status, cpp, literal):
     os.makedirs(MODELS_DIR, exist_ok=True)
     steps = []
-    if not segmentation_path():
-        steps.append(("el modelo de voces", lambda p: _fetch_tar(SEGMENTATION_URL, p)))
     if not embedding_path():
         steps.append(("el modelo de voces", lambda p: _download(EMBEDDING_URL, os.path.join(MODELS_DIR, os.path.basename(EMBEDDING_URL)), p)))
     if name is None:
