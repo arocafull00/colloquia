@@ -2,6 +2,7 @@ faster-whisper
 sherpa-onnx
 sounddevice
 numpy
+psutil
 lameenc
 pywebview
 nvidia-cublas-cu12; sys_platform == "win32"

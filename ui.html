@@ -142,6 +142,7 @@ h1 { margin: 0 0 6px; font-size: 26px; font-weight: 600; letter-spacing: -.02em;
 .rec-btn:hover { background: #ffffff; }
 .rec-btn:active { transform: scale(.98); }
 .rec-btn i { width: 10px; height: 10px; border-radius: 50%; background: var(--rec); }
+#importBtn { margin-top: 12px; }
 
 .stats { border: 1px solid var(--line); border-radius: 16px; background: var(--card); padding: 22px 24px; }
 .stat { display: flex; align-items: baseline; gap: 8px; }
@@ -311,10 +312,10 @@ h1 { margin: 0 0 6px; font-size: 26px; font-weight: 600; letter-spacing: -.02em;
 
 .back { display: inline-flex; align-items: center; gap: 6px; margin: -14px 0 14px -2px; }
 .back .icon { width: 15px; height: 15px; }
-.tr-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; max-width: 760px; }
+.tr-head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px 20px; max-width: 760px; }
 .tr-head .lead { margin-bottom: 0; }
 .tr-title { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
-.tr-title h1 { margin: 0; cursor: text; }
+.tr-title h1 { margin: 0; cursor: text; overflow-wrap: anywhere; }
 .tr-title .ghost { opacity: 1; flex: none; }
 .tr-edit { min-width: 0; width: 360px; max-width: 100%; font: inherit; font-size: 26px; font-weight: 600; letter-spacing: -.02em; color: var(--text); background: var(--active); border: 1px solid var(--border, transparent); border-radius: 8px; padding: 2px 10px; outline: none; }
 .tr-edit:focus { border-color: var(--voice1); }
@@ -391,6 +392,7 @@ h1 { margin: 0 0 6px; font-size: 26px; font-weight: 600; letter-spacing: -.02em;
   <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
   <symbol id="i-back" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></symbol>
   <symbol id="i-copy" viewBox="0 0 24 24"><rect x="8.5" y="8.5" width="11" height="12" rx="2"/><path d="M15.5 8.5V5.5a2 2 0 0 0-2-2h-7a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h2"/></symbol>
+  <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 3.5v11M8 10.5l4 4 4-4M4.5 15.5v4h15v-4"/></symbol>
   <symbol id="i-edit" viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16zM13.5 6.5l4 4"/></symbol>
   <symbol id="i-retry"viewBox="0 0 24 24"><path d="M4.5 12a7.5 7.5 0 1 0 2.2-5.3M4.5 4.5v4h4"/></symbol>
 </svg>
@@ -424,6 +426,7 @@ h1 { margin: 0 0 6px; font-size: 26px; font-weight: 600; letter-spacing: -.02em;
               <button class="rec-btn" type="submit"><i></i>Grabar</button>
             </form>
           </div>
+          <button class="btn" id="importBtn"><svg class="icon"><use href="#i-music"/></svg>Transcribir archivo de audio</button>
 
           <div class="notice update" id="updateBox" hidden>
             <svg class="icon"><use href="#i-retry"/></svg>
@@ -453,7 +456,7 @@ h1 { margin: 0 0 6px; font-size: 26px; font-weight: 600; letter-spacing: -.02em;
         </div>
         <div class="stats">
           <div class="stat"><strong id="statSessions">0</strong><span id="statSessionsLabel">sesiones</span></div>
-          <div class="stat"><strong id="statTime">0</strong><span id="statTimeLabel">horas grabadas</span></div>
+          <div class="stat"><strong id="statTime">0</strong><span id="statTimeLabel">horas de audio</span></div>
           <div class="stat"><strong id="statWeek">0</strong><span>esta semana</span></div>
         </div>
       </div>
@@ -495,7 +498,7 @@ h1 { margin: 0 0 6px; font-size: 26px; font-weight: 600; letter-spacing: -.02em;
       <p class="lead" id="doneInfo" style="margin-bottom:0"></p>
       <div class="files">
         <span class="file"><svg class="icon"><use href="#i-music"/></svg>sesion.mp3</span>
-        <span class="file"><svg class="icon"><use href="#i-file"/></svg>transcripcion.txt</span>
+        <button class="btn" id="doneDownload"><svg class="icon"><use href="#i-download"/></svg>Descargar TXT</button>
       </div>
       <div class="card-title" style="margin-top:30px">¿Están bien asignadas las voces?</div>
       <div class="card" id="voices"></div>
@@ -540,6 +543,7 @@ h1 { margin: 0 0 6px; font-size: 26px; font-weight: 600; letter-spacing: -.02em;
       <div class="actions">
         <button class="btn" id="trCopy"><svg class="icon"><use href="#i-copy"/></svg>Copiar</button>
         <button class="btn" id="trOpen"><svg class="icon"><use href="#i-folder"/></svg>Abrir carpeta</button>
+        <button class="btn primary" id="trDownload"><svg class="icon"><use href="#i-download"/></svg>Descargar TXT</button>
       </div>
     </div>
     <div class="player" id="trPlayer" hidden>
@@ -577,7 +581,7 @@ h1 { margin: 0 0 6px; font-size: 26px; font-weight: 600; letter-spacing: -.02em;
         <div class="control"><div class="select"><select data-key="language"></select></div></div>
       </div>
       <div class="setting">
-        <div class="label"><b>Marcar silencios de</b><small>Duración mínima para anotar una pausa</small></div>
+        <div class="label"><b>Marcar silencios</b><small>Duración mínima para anotar una pausa</small></div>
         <div class="control"><div class="select"><select data-key="pause_min"></select></div></div>
       </div>
       <div class="setting">
@@ -671,7 +675,7 @@ function handle(msg) {
     state.bannerP = msg.p ?? null;
     renderStatus();
   } else if (msg.type === "alert") alertBox(msg.text);
-  else if (msg.type === "confirmQuit") confirmQuit(msg.screen);
+  else if (msg.type === "confirmQuit") confirmQuit(msg.screen, msg.importing);
   else if (msg.type === "update") renderUpdate(msg.update);
 }
 
@@ -735,12 +739,13 @@ function alertBox(text) {
   modal("Colloquia", text, [["Entendido", "primary"]]);
 }
 
-function confirmQuit(screen) {
+function confirmQuit(screen, importing) {
   if (screen === "recording") {
     modal("¿Salir durante la grabación?", "La grabación se detendrá. Podrás procesarla la próxima vez que abras Colloquia.",
       [["Seguir grabando", ""], ["Detener y salir", "danger", () => pywebview.api.quit()]]);
   } else {
-    modal("¿Salir mientras se procesa?", "Si sales ahora podrás retomar la sesión la próxima vez que abras Colloquia.",
+    const text = importing ? "Tendrás que volver a seleccionar el archivo para transcribirlo." : "Si sales ahora podrás retomar la sesión la próxima vez que abras Colloquia.";
+    modal("¿Salir mientras se procesa?", text,
       [["Seguir procesando", ""], ["Salir", "danger", () => pywebview.api.quit()]]);
   }
 }
@@ -971,7 +976,7 @@ function progress(text, p) {
   renderSteps();
   const g = totalProgress();
   if (state.eta && state.eta.t0 === null && k > 0) Object.assign(state.eta, { t0: Date.now(), g0: g });
-  $("#procText").textContent = `${STAGES[k].name}${step.p !== null ? " · " + pct(step.p) : ""}`;
+  $("#procText").textContent = `${k === 0 ? text : STAGES[k].name}${step.p !== null ? " · " + pct(step.p) : ""}`;
   $("#procPct").textContent = pct(g);
   setBar(k === 0 ? (p ?? null) : g);
   renderEta();
@@ -1168,10 +1173,10 @@ function renderSessions() {
   const secs = done.reduce((t, s) => t + (s.duration || 0), 0);
   if (secs < 3600) {
     $("#statTime").textContent = Math.round(secs / 60);
-    $("#statTimeLabel").textContent = "minutos grabados";
+    $("#statTimeLabel").textContent = "minutos de audio";
   } else {
     $("#statTime").textContent = new Intl.NumberFormat("es-ES", { maximumFractionDigits: 1 }).format(secs / 3600);
-    $("#statTimeLabel").textContent = "horas grabadas";
+    $("#statTimeLabel").textContent = "horas de audio";
   }
   const weekAgo = Date.now() - 7 * 864e5;
   $("#statWeek").textContent = done.filter(s => s.started && new Date(s.started).getTime() > weekAgo).length;
@@ -1244,6 +1249,18 @@ $("#recForm").addEventListener("submit", e => {
   pywebview.api.start($("#sessionName").value);
 });
 
+$("#importBtn").addEventListener("click", async e => {
+  const button = e.currentTarget;
+  button.disabled = true;
+  try {
+    await pywebview.api.import_audio();
+  } catch {
+    alertBox("No se pudo abrir el selector de archivos de audio.");
+  } finally {
+    button.disabled = false;
+  }
+});
+
 $("#pauseBtn").addEventListener("click", async () => {
   state.paused = await pywebview.api.pause();
   renderRecording();
@@ -1308,6 +1325,23 @@ $("#trCopy").addEventListener("click", () => {
   copyText(state.transcript.text);
   toast("Transcripción copiada");
 });
+
+async function downloadTxt(button, path = null) {
+  button.disabled = true;
+  try {
+    const result = await pywebview.api.download_txt(path);
+    if (result === "saved") toast("Transcripción guardada");
+    if (result === "unavailable") alertBox("No se encuentra el archivo de transcripción.");
+    if (result === "error") alertBox("No se pudo guardar el TXT en el destino elegido.");
+  } catch {
+    alertBox("No se pudo guardar la transcripción.");
+  } finally {
+    button.disabled = false;
+  }
+}
+
+$("#doneDownload").addEventListener("click", e => downloadTxt(e.currentTarget));
+$("#trDownload").addEventListener("click", e => downloadTxt(e.currentTarget, state.transcript.path));
 
 const actions = {
   reset: () => pywebview.api.reset(),

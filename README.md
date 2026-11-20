@@ -26,7 +26,7 @@ Colloquia está pensada para sesiones en las que importa **cómo** se habla, no 
   ```
   - `(pausa X s)`: silencio dentro de una intervención.
   - `(silencio X s)` en su propia línea: silencio entre intervenciones, es decir, el tiempo de respuesta.
-  - El umbral se configura en Ajustes (1, 1,5, 2 o 3 s).
+  - En **Ajustes → Marcar silencios** puedes elegir el umbral (1, 1,5, 2 o 3 s) o seleccionar **No marcar** para ocultar tanto las pausas como los silencios entre intervenciones.
 - Marca con `palabra[?]` las palabras que el modelo reconoce con poca seguridad. Suelen ser palabras mal pronunciadas o poco claras, y conviene escucharlas en el MP3.
 
 - Marca con `palabra ⟨lo que se oye⟩` las palabras que se pronuncian distinto de como las reconoce el modelo principal (por ejemplo `pintor ⟨pantor⟩`). Se puede desactivar en Ajustes.
@@ -193,6 +193,8 @@ Para comparar los modelos en un equipo concreto, lee en voz alta [`tools/guion-p
 
 Colloquia transcribe **mientras grabas**, en fragmentos de 30 a 90 segundos que corta en los silencios, y va guardando también el MP3. Al pulsar **Detener** solo queda el último fragmento y la identificación de las voces, que tarda unos 3–10 minutos por hora de sesión según el equipo. La pantalla de grabación muestra qué porcentaje de la grabación está ya transcrito.
 
+Al **importar un archivo**, Colloquia mantiene los audios de hasta 90 segundos en una pieza. En los más largos busca pausas cerca de cada minuto. Con Parakeet y faster-whisper procesa uno, dos o cuatro fragmentos a la vez según la duración y los recursos disponibles. Con CUDA también comprueba la memoria libre de la gráfica. Con whisper.cpp procesa los fragmentos de uno en uno. Los resultados se guardan en orden con sus tiempos originales y las voces se identifican sobre la sesión completa.
+
 Al procesar, la pantalla muestra cada etapa (preparación, MP3, transcripción, voces y texto) con su porcentaje, el progreso total y una estimación del tiempo que queda. Si hay que descargar un modelo, también se ve el porcentaje de la descarga.
 
 En un portátil sin gráfica dedicada, el modelo Rápido transcribe mucho más deprisa de lo que se habla, así que al pulsar **Detener** casi todo está listo. Con Turbo o Large v3 en un equipo así, si no da abasto, al terminar transcribe lo que quede pendiente y avisa para que elijas Automático o Rápido.
@@ -213,6 +215,10 @@ Al terminar, la transcripción y la identificación de voces se hacen en paralel
 - Los archivos se guardan sin cifrar en la carpeta elegida. Usa un disco cifrado (BitLocker, FileVault, LUKS) o una carpeta protegida.
 
 ## Procesar un audio existente
+
+En la aplicación, pulsa **Transcribir archivo de audio** en la pantalla de inicio y elige un archivo, por ejemplo MP3, WAV, M4A o FLAC. Colloquia lo transcribe en este equipo y añade el resultado a **Sesiones**. Al terminar o al abrir la transcripción, pulsa **Descargar TXT** para elegir dónde guardar una copia.
+
+### Desde la terminal
 
 Con la versión instalada:
 - Windows: `colloquia-cli.exe grabacion.mp3 carpeta_salida`, desde la carpeta de instalación.

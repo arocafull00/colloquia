@@ -6,15 +6,20 @@ import multiprocessing
 import os
 import queue
 import re
+import shutil
+import subprocess
 import sys
 import threading
 import time
 import traceback
 import wave
+from concurrent.futures import ThreadPoolExecutor
+from contextlib import ExitStack
 from datetime import datetime
 
 import lameenc
 import numpy as np
+import psutil
 
 import literal
 import models
@@ -70,38 +75,50 @@ def secs(t):
     return f"{t:.1f}".replace(".", ",") + " s"
 
 
-def load_engine(name):
+def load_engine(name, threads=THREADS, workers=1):
     from faster_whisper import WhisperModel
 
     if models.is_sherpa(name):
-        return sherpa_asr.Model.transducer(models.sherpa_path(name), THREADS), "CPU"
+        return sherpa_asr.Model.transducer(models.sherpa_path(name), threads), "CPU"
     if models.uses_whisper_cpp():
         return whisper_cpp.Model(models.whisper_cli(), models.ggml_path(name), THREADS), "GPU"
     path = models.whisper_path(name) or name
     if WIN and models.cuda_ready():
         add_cuda_dirs()
         try:
-            model = WhisperModel(path, device="cuda", compute_type="float16")
+            model = WhisperModel(path, device="cuda", compute_type="float16", num_workers=workers)
             list(model.transcribe(np.zeros(RATE, np.float32), language="es")[0])
             return model, "GPU"
         except Exception as e:
+            if workers > 1:
+                raise
             print(f"GPU no disponible ({e}); usando CPU.")
-    return WhisperModel(path, device="cpu", compute_type="int8"), "CPU"
+    model = WhisperModel(path, device="cpu", compute_type="int8", cpu_threads=threads if workers > 1 else 0, num_workers=workers)
+    return model, "CPU"
 
 
-def write_wav(session_dir, rate, status):
+def write_wav(session_dir, rate, status, *, encode_mp3=False):
     pcm = os.path.join(session_dir, PCM)
     total = os.path.getsize(pcm) or 1
     done = 0
-    with open(pcm, "rb") as src, wave.open(os.path.join(session_dir, WAV), "wb") as wav:
+    with ExitStack() as files:
+        src = files.enter_context(open(pcm, "rb"))
+        wav = files.enter_context(wave.open(os.path.join(session_dir, WAV), "wb"))
+        if encode_mp3:
+            mp3 = files.enter_context(open(os.path.join(session_dir, MP3), "wb"))
+            enc = mp3_encoder(rate)
         wav.setnchannels(1)
         wav.setsampwidth(2)
         wav.setframerate(rate)
         while chunk := src.read(CHUNK):
             chunk = chunk[: len(chunk) // 2 * 2]
             wav.writeframes(chunk)
+            if encode_mp3:
+                mp3.write(enc.encode(chunk))
             done += len(chunk)
             status("Guardando MP3…", done / total)
+        if encode_mp3:
+            mp3.write(enc.flush())
 
 
 def mp3_encoder(rate):
@@ -114,12 +131,12 @@ def mp3_encoder(rate):
 
 
 class Whisper:
-    def __init__(self, cfg, name, said=None):
+    def __init__(self, cfg, name, said=None, *, threads=THREADS, workers=1, engine=None):
         self.cfg, self.name = cfg, name
-        self.model, self.device = load_engine(name)
+        self.model, self.device = engine or load_engine(name, threads, workers)
         self.said = said
         if said is None and models.wants_literal(cfg) and models.sherpa_path("literal"):
-            self.said = sherpa_asr.Model.ctc(models.sherpa_path("literal"), THREADS)
+            self.said = sherpa_asr.Model.ctc(models.sherpa_path("literal"), threads)
 
     def words(self, audio, offset, status):
         main = status if self.said is None else lambda text, p: status(text, None if p is None else p * MAIN_SHARE)
@@ -195,26 +212,172 @@ def partial_key(cfg):
     return [cfg["model"], cfg["language"], cfg.get("verbatim", True), bool(models.wants_literal(cfg))]
 
 
-def load_partial(session_dir, cfg):
+def load_partial(session_dir, cfg, *, repair=False):
     chunks = []
     try:
-        with open(os.path.join(session_dir, PARTIAL), encoding="utf-8") as f:
+        with open(os.path.join(session_dir, PARTIAL), "r+b" if repair else "rb") as f:
+            valid_bytes = 0
             for line in f:
+                if repair and not line.endswith(b"\n"):
+                    break
                 try:
                     chunk = json.loads(line)
                 except ValueError:
                     break
                 if chunk.get("key") != partial_key(cfg):
-                    return []
+                    chunks.clear()
+                    valid_bytes = 0
+                    break
                 chunks.append(chunk)
-    except OSError:
+                valid_bytes += len(line)
+            if repair:
+                f.truncate(valid_bytes)
+    except FileNotFoundError:
         pass
     return chunks
 
 
-def save_chunk(out, cfg, end, words, model):
-    out.write(json.dumps({"key": partial_key(cfg), "end": end, "model": model, "words": words}, ensure_ascii=False) + "\n")
+def save_chunk(out, cfg, end, words, model, device=None):
+    record = {"key": partial_key(cfg), "end": end, "model": model, "words": words}
+    if device:
+        record["device"] = device
+    out.write(json.dumps(record, ensure_ascii=False) + "\n")
     out.flush()
+
+
+def import_ranges(pcm, start):
+    # Look for a pause around each minute. Keep a short tail with the last chunk.
+    while len(pcm) - start > CHUNK_MAX * RATE:
+        lo, hi = start + 55 * RATE, start + 65 * RATE
+        window = pcm[lo:hi].astype(np.float32) / 32768
+        regions = speech_regions(window)
+        ends = [0.0] + [end for _, end in regions]
+        starts = [begin for begin, _ in regions] + [len(window) / RATE]
+        pauses = [round((a + b) * RATE / 2) for a, b in zip(ends, starts) if b - a >= CUT_GAP]
+        if pauses:
+            cut = min(pauses, key=lambda t: abs(t - len(window) // 2))
+        else:
+            # Continuous speech: prefer the quietest 20 ms in the search window.
+            frame = RATE // 50
+            energy = np.mean(window.reshape(-1, frame) ** 2, axis=1)
+            cut = int(energy.argmin()) * frame + frame // 2
+        end = lo + cut
+        yield start, end
+        start = end
+    if start < len(pcm):
+        yield start, len(pcm)
+
+
+def import_workers(count, name, cfg):
+    sherpa = models.is_sherpa(name)
+    if count < 2 or (not sherpa and models.uses_whisper_cpp()):
+        return 1
+    # CTranslate2 shares CPU weights. Each additional Sherpa recognizer has its own.
+    gib = 1 << 30
+    base = gib if sherpa else (4 if name == "large-v3" else 2) * gib
+    extra = gib if sherpa else gib // 2
+    if models.wants_literal(cfg):
+        base += gib
+        extra += gib
+    spare = max(0, psutil.virtual_memory().available - gib - base)
+    limit = min(count, THREADS // 2, 1 + spare // extra)
+    if limit >= 2 and not sherpa and WIN and models.cuda_ready():
+        try:
+            memory = subprocess.check_output(
+                ["nvidia-smi", "--query-gpu=memory.free", "--format=csv,noheader,nounits"],
+                timeout=3, text=True, creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+            )
+            free_mib = min(int(line) for line in memory.splitlines())
+        except (OSError, ValueError, subprocess.SubprocessError):
+            return 1
+        # Leave room for the desktop, weights and the decoder's working memory.
+        weight_mib = 4096 if name == "large-v3" else 2048
+        limit = min(limit, (free_mib - weight_mib - 1024) // 1536)
+    if limit >= 4:
+        return 4
+    return 2 if limit >= 2 else 1
+
+
+def transcribe_import(session_dir, cfg, send):
+    def status(text, p):
+        send("status", text, p)
+
+    status("Preparando fragmentos de audio…", None)
+    chunks = load_partial(session_dir, cfg, repair=True)
+    start = chunks[-1]["end"] if chunks else 0
+    pcm = np.memmap(os.path.join(session_dir, PCM), dtype=np.int16, mode="r")
+    ranges = list(import_ranges(pcm, start))
+    if not ranges:
+        send("done", chunks[-1].get("device", "CPU"), 0)
+        return
+    name = models.ensure(cfg["model"], status, literal=models.wants_literal(cfg))
+    workers = import_workers(len(ranges), name, cfg)
+    try:
+        device = recognize_import_ranges(session_dir, cfg, pcm, ranges, name, workers, send)
+    except (RuntimeError, MemoryError) as e:
+        if workers == 1:
+            raise
+        print(f"Falló la transcripción en paralelo ({e}); se reintenta con un solo fragmento.")
+    else:
+        send("done", device, 0)
+        return
+    gc.collect()
+    chunks = load_partial(session_dir, cfg, repair=True)
+    start = chunks[-1]["end"] if chunks else 0
+    pending = [span for span in ranges if span[0] >= start]
+    device = recognize_import_ranges(session_dir, cfg, pcm, pending, name, 1, send)
+    send("done", device, 0)
+
+
+def recognize_import_ranges(session_dir, cfg, pcm, ranges, name, workers, send):
+    def status(text, p):
+        send("status", text, p)
+
+    threads = max(1, THREADS // workers)
+    status("Cargando el modelo de transcripción…", None)
+    first = Whisper(cfg, name, threads=threads, workers=workers)
+    idle = queue.Queue()
+    idle.put(first)
+    # Each worker owns its Sherpa streams and model. faster-whisper has a native worker pool.
+    shared = None if models.is_sherpa(name) else (first.model, first.device)
+    for _ in range(1, workers):
+        idle.put(Whisper(cfg, name, threads=threads, engine=shared))
+
+    lock = threading.Lock()
+    completed = reported = ranges[0][0]
+
+    def recognize(bounds):
+        lo, hi = bounds
+        previous = 0
+
+        def progress(text, fraction):
+            nonlocal previous, completed, reported
+            if not text.startswith("Transcribiendo"):
+                status(text, fraction)
+            elif fraction is not None:
+                samples = max(previous, round((hi - lo) * min(1, fraction)))
+                with lock:
+                    completed += samples - previous
+                    previous = samples
+                    if completed - reported >= len(pcm) / 200 or completed == len(pcm):
+                        reported = completed
+                        send("progress", completed / len(pcm))
+
+        engine = idle.get()
+        try:
+            audio = pcm[lo:hi].astype(np.float32) / 32768
+            words = engine.words(audio, lo / RATE, progress)
+            progress("Transcribiendo…", 1)
+            return words
+        finally:
+            idle.put(engine)
+
+    send("pos", completed / RATE)
+    with open(os.path.join(session_dir, PARTIAL), "a", encoding="utf-8") as out, ThreadPoolExecutor(workers) as pool:
+        # map yields in source order even when a later chunk finishes first.
+        for (_, end), words in zip(ranges, pool.map(recognize, ranges)):
+            save_chunk(out, cfg, end, words, name, first.device)
+    return first.device
 
 
 def live_transcribe(session_dir, rate, cfg, send, finish):
@@ -294,7 +457,7 @@ def live_transcribe(session_dir, rate, cfg, send, finish):
     send("done", whisper.device, lag)
 
 
-def transcribe_child(session_dir, rate, cfg, queue, finish):
+def transcribe_child(session_dir, rate, cfg, queue, finish, imported):
     try:
         if WIN:
             import ctypes
@@ -302,19 +465,25 @@ def transcribe_child(session_dir, rate, cfg, queue, finish):
             ctypes.windll.kernel32.SetPriorityClass(ctypes.windll.kernel32.GetCurrentProcess(), 0x4000)
         else:
             os.nice(5)
-        live_transcribe(session_dir, rate, cfg, lambda *msg: queue.put(msg), finish)
+        def send(*msg):
+            queue.put(msg)
+
+        if imported:
+            transcribe_import(session_dir, cfg, send)
+        else:
+            live_transcribe(session_dir, rate, cfg, send, finish)
     except Exception as e:
         traceback.print_exc()
         queue.put(("error", f"{e.__class__.__name__}: {e}"))
 
 
 class Transcription:
-    def __init__(self, session_dir, rate, cfg):
+    def __init__(self, session_dir, rate, cfg, *, imported=False):
         ctx = multiprocessing.get_context("spawn")
         self.cfg = cfg
         self.queue = ctx.Queue()
         self.finish = ctx.Event()
-        self.proc = ctx.Process(target=transcribe_child, args=(session_dir, rate, cfg, self.queue, self.finish), daemon=True)
+        self.proc = ctx.Process(target=transcribe_child, args=(session_dir, rate, cfg, self.queue, self.finish, imported), daemon=True)
         self.proc.start()
         self.lock = threading.Lock()
         self.seconds = 0.0
@@ -639,7 +808,7 @@ def samples(meta):
 
 def entries(meta, cfg):
     pause_min, doubtful, said = cfg.get("pause_min", 1.5), cfg.get("mark_doubtful", True), cfg.get("literal", True)
-    silences = silences_before_words(meta)
+    silences = silences_before_words(meta) if pause_min > 0 else {}
     out = []
     for ti, t in enumerate(meta["turns"]):
         for start, d in silences.get((ti, 0), []):
@@ -661,15 +830,21 @@ def write_txt(session_dir, cfg):
         f"Duración: {hms(meta['duration'])}",
         f"Modelo: {meta['model']} ({meta['device']})",
         "",
-        "Notación:",
-        f"  (pausa 2,3 s)          silencio de {secs(pause_min)} o más dentro de una intervención",
-        f"  [00:01:02] (silencio)  silencio de {secs(pause_min)} o más entre intervenciones",
     ]
+    notation = []
+    if pause_min > 0:
+        notation.extend([
+            f"  (pausa 2,3 s)          silencio de {secs(pause_min)} o más dentro de una intervención",
+            f"  [00:01:02] (silencio)  silencio de {secs(pause_min)} o más entre intervenciones",
+        ])
     if doubtful:
-        lines.append("  palabra[?]             reconocida con poca seguridad: conviene escucharla en el MP3")
+        notation.append("  palabra[?]             reconocida con poca seguridad: conviene escucharla en el MP3")
     if cfg.get("literal", True) and meta.get("said"):
-        lines.append("  pintor ⟨pantor⟩        lo que se oye tal cual, cuando no coincide con la palabra reconocida")
-    lines += ["  Las duraciones son aproximadas (±0,5 s).", "", ""]
+        notation.append("  pintor ⟨pantor⟩        lo que se oye tal cual, cuando no coincide con la palabra reconocida")
+    if pause_min > 0:
+        notation.append("  Las duraciones son aproximadas (±0,5 s).")
+    if notation:
+        lines += ["Notación:", *notation, "", ""]
     for e in entries(meta, cfg):
         who = "" if e["role"] is None else f"{roles[e['role']]}: "
         lines += [f"[{hms(e['start'])}] {who}{e['text']}", ""]
@@ -698,15 +873,16 @@ def process(session_dir, cfg, status, live=None):
     from faster_whisper import decode_audio
 
     meta = read_meta(session_dir)
+    imported = meta.get("source") == "import"
     meta["state"] = "processing"
     write_meta(session_dir, meta)
-    if live is None or not live.alive():
-        if live is not None:
-            print(f"La transcripción durante la grabación falló ({live.error}); se repite.")
-        live = Transcription(session_dir, meta["rate"], cfg)
     try:
         models.ensure(cfg["model"], status, transcriber=False)
-        write_wav(session_dir, meta["rate"], status)
+        if live is None or not live.alive():
+            if live is not None:
+                print(f"La transcripción durante la grabación falló ({live.error}); se repite.")
+            live = Transcription(session_dir, meta["rate"], cfg, imported=imported)
+        write_wav(session_dir, meta["rate"], status, encode_mp3=imported)
         meta["duration"] = os.path.getsize(os.path.join(session_dir, PCM)) / 2 / meta["rate"]
         diarization = Diarization(os.path.join(session_dir, WAV))
         try:
@@ -722,7 +898,8 @@ def process(session_dir, cfg, status, live=None):
             if diarization.proc.is_alive():
                 diarization.proc.terminate()
     finally:
-        live.cancel()
+        if live is not None:
+            live.cancel()
 
     status("Generando texto…", None)
     turns = build_turns(words, assign_speakers(words, spans))
@@ -753,14 +930,21 @@ def import_audio(path, folder):
 
     from recorder import new_session_dir
 
-    session_dir = new_session_dir(folder, os.path.splitext(os.path.basename(path))[0])
     audio = decode_audio(path, sampling_rate=RATE)
-    with open(os.path.join(session_dir, PCM), "wb") as f:
-        f.write((np.clip(audio, -1, 1) * 32767).astype(np.int16).tobytes())
-    write_meta(
-        session_dir,
-        {"state": "recorded", "name": os.path.basename(path), "rate": RATE, "started": datetime.now().isoformat(timespec="seconds")},
-    )
+    if not audio.size:
+        raise ValueError("El archivo no contiene audio.")
+    name = os.path.basename(path)
+    session_dir = new_session_dir(folder, os.path.splitext(name)[0][:80])
+    try:
+        with open(os.path.join(session_dir, PCM), "wb") as f:
+            (np.clip(audio, -1, 1) * 32767).astype(np.int16).tofile(f)
+        write_meta(
+            session_dir,
+            {"state": "recorded", "source": "import", "name": name, "rate": RATE, "started": datetime.now().isoformat(timespec="seconds")},
+        )
+    except OSError:
+        shutil.rmtree(session_dir, ignore_errors=True)
+        raise
     return session_dir
 
 

@@ -47,7 +47,7 @@ DEFAULTS = {
     "version": 2,
 }
 
-PAUSES = {"1 segundo": 1.0, "1,5 segundos": 1.5, "2 segundos": 2.0, "3 segundos": 3.0}
+PAUSES = {"No marcar": 0, "1 segundo": 1.0, "1,5 segundos": 1.5, "2 segundos": 2.0, "3 segundos": 3.0}
 
 LANGUAGES = {
     "Español": "es",

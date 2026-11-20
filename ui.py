@@ -26,6 +26,10 @@ SILENCE_LEVEL = 0.003
 SILENCE_SECONDS = 30
 SLOW_LAG = 300
 UPDATE_INTERVAL = 6 * 3600
+AUDIO_FILE_TYPES = (
+    "Archivos de audio (*.mp3;*.wav;*.m4a;*.aac;*.flac;*.ogg;*.oga;*.opus;*.wma;*.aif;*.aiff;*.webm;*.mp4)",
+    "Todos los archivos (*.*)",
+)
 
 
 def dark_mode():
@@ -136,6 +140,18 @@ class Api:
             self._silent_since = None
             self._show("recording")
 
+    def import_audio(self):
+        with self._lock:
+            if self._screen != "home":
+                return
+        picked = self._window.create_file_dialog(webview.FileDialog.OPEN, file_types=AUDIO_FILE_TYPES)
+        if not picked:
+            return
+        path = picked[0] if isinstance(picked, (list, tuple)) else picked
+        with self._lock:
+            if self._screen == "home":
+                self._process(None, audio_path=path)
+
     def pause(self):
         self._recorder.paused = not self._recorder.paused
         return self._recorder.paused
@@ -217,6 +233,29 @@ class Api:
             "text": text,
             "audio": player.url_for(mp3) if os.path.isfile(mp3) else None,
         }
+
+    def download_txt(self, path=None):
+        path = path or self._session_dir
+        if not path:
+            return "unavailable"
+        source = os.path.join(path, pipeline.TXT)
+        if not os.path.isfile(source):
+            return "unavailable"
+        picked = self._window.create_file_dialog(
+            webview.FileDialog.SAVE, save_filename=pipeline.TXT, file_types=("Texto (*.txt)",),
+        )
+        if not picked:
+            return None
+        dest = picked[0] if isinstance(picked, (list, tuple)) else picked
+        try:
+            with self._lock:
+                shutil.copyfile(source, dest)
+        except shutil.SameFileError:
+            pass
+        except OSError:
+            traceback.print_exc()
+            return "error"
+        return "saved"
 
     def open(self, path=None):
         target = path or (self._session_dir if self._screen == "done" else self._cfg["folder"])
@@ -370,7 +409,7 @@ class Api:
 
         threading.Thread(target=work, daemon=True).start()
 
-    def _process(self, session_dir, live=None):
+    def _process(self, session_dir, live=None, *, audio_path=None):
         self._session_dir = session_dir
         self._meta = None
         self._awake.start()
@@ -382,7 +421,27 @@ class Api:
             self._send({"type": "progress", "text": text, "p": p})
 
         def work():
+            nonlocal session_dir
+            if audio_path is not None:
+                status("Preparando el archivo de audio…", None)
+                try:
+                    session_dir = pipeline.import_audio(audio_path, cfg["folder"])
+                except Exception as e:
+                    traceback.print_exc()
+                    with self._lock:
+                        self._awake.stop()
+                        self._show("home")
+                        self._alert(
+                            "No se pudo importar el audio. Comprueba que el archivo se puede reproducir "
+                            f"y que la carpeta de destino es accesible.\n\n{e}"
+                        )
+                    return
+                with self._lock:
+                    self._session_dir = session_dir
             try:
+                if audio_path is not None:
+                    status("Preparando los modelos…", None)
+                    models.ensure(cfg["model"], status, literal=models.wants_literal(cfg))
                 meta = pipeline.process(session_dir, cfg, status, live)
             except Exception as e:
                 traceback.print_exc()
@@ -433,7 +492,8 @@ class Api:
         if self._quitting or self._screen not in ("recording", "processing"):
             self._shutdown()
             return True
-        threading.Thread(target=self._send, args=({"type": "confirmQuit", "screen": self._screen},), daemon=True).start()
+        msg = {"type": "confirmQuit", "screen": self._screen, "importing": self._session_dir is None}
+        threading.Thread(target=self._send, args=(msg,), daemon=True).start()
         return False
 
     def _shutdown(self):
